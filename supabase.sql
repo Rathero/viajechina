@@ -1,19 +1,22 @@
 -- Pega esto en el SQL Editor de Supabase y pulsa Run.
--- Tabla clave-valor con seguridad por usuario (cada cuenta ve solo sus datos).
+-- Tabla clave-valor PÚBLICA: un único viaje compartido, sin login.
+-- Cualquiera con la URL de la app puede leer y escribir.
 
-create table if not exists public.kv (
-  user_id    uuid        not null references auth.users(id) on delete cascade,
-  key        text        not null,
+-- OJO: esto borra la tabla anterior (la que tenía user_id) y la recrea.
+-- Si tenías datos importantes guardados, haz una copia antes.
+drop table if exists public.kv;
+
+create table public.kv (
+  key        text        primary key,
   data       jsonb       not null,
-  updated_at timestamptz not null default now(),
-  primary key (user_id, key)
+  updated_at timestamptz not null default now()
 );
 
 alter table public.kv enable row level security;
 
--- Cada usuario solo puede leer/escribir sus propias filas.
-create policy "kv_owner_all" on public.kv
+-- Acceso público: el rol anónimo (anon) puede leer y escribir todo.
+create policy "kv_public_all" on public.kv
   for all
-  to authenticated
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  to anon, authenticated
+  using (true)
+  with check (true);

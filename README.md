@@ -1,15 +1,15 @@
 # Mi viaje — Vercel + Supabase
 
 App de planificación de viaje (React + Vite). Sin servidor propio: los datos se guardan en
-**Supabase** (Postgres + auth gestionados) y se publica en **Vercel**.
+**Supabase** (Postgres gestionado) y se publica en **Vercel**.
 
 ```
-  Navegador (React en Vercel)  ──>  Supabase (Postgres + Auth)
-        src/store.js                 tabla kv (JSONB), RLS por usuario
+  Navegador (React en Vercel)  ──>  Supabase (Postgres)
+        store.js                     tabla kv (JSONB), pública
 ```
 
-No hay backend que mantener. El frontend habla con Supabase directamente y la seguridad la da
-**RLS** (cada usuario solo ve sus filas) + login con enlace mágico por email.
+No hay backend ni login que mantener. La app es **pública**: un único viaje compartido que se
+ve y se edita desde cualquier dispositivo con la URL. El frontend habla con Supabase directamente.
 
 ---
 
@@ -20,12 +20,8 @@ No hay backend que mantener. El frontend habla con Supabase directamente y la se
 3. Ve a **Project Settings → API** y copia:
    - **Project URL** → `VITE_SUPABASE_URL`
    - **anon public key** → `VITE_SUPABASE_ANON_KEY`
-4. Ve a **Authentication → URL Configuration** y añade en *Redirect URLs*:
-   - `http://localhost:5173` (para desarrollo)
-   - la URL de tu app en Vercel (cuando la tengas), p. ej. `https://mi-viaje.vercel.app`
 
-> El login por enlace mágico funciona de inmediato con el email de Supabase (con límites de envío).
-> Para producción seria, configura tu propio SMTP en Authentication → Emails.
+> No hace falta configurar login ni *Redirect URLs*: la app es pública y no usa autenticación.
 
 ## 2. Probar en local
 
@@ -45,15 +41,15 @@ npm run dev                     # http://localhost:5173
    - `VITE_SUPABASE_ANON_KEY`
 4. **Deploy**. Listo.
 
-## Compartir el viaje en pareja
+## Compartir el viaje
 
-Cada cuenta (email) tiene su propio viaje. Para planificar **el mismo** viaje entre dos personas,
-entrad con el **mismo email**. Ambos veréis y editaréis los mismos datos.
+Es un único viaje **público compartido**: cualquiera con la URL ve y edita los mismos datos,
+desde el móvil o el ordenador, sin cuentas ni contraseñas.
 
 ## Cómo se guardan los datos
 
-La app guarda su estado a través de una interfaz clave-valor (`src/store.js`), que sobre Supabase
-usa una tabla `kv (user_id, key, data JSONB)`:
+La app guarda su estado a través de una interfaz clave-valor (`store.js`), que sobre Supabase
+usa una tabla `kv (key, data JSONB)`:
 
 - El **viaje completo** (ruta, días, actividades, reservas, gastos, maleta, ajustes) va en una clave.
 - Cada **adjunto** va en su propia clave.
@@ -82,12 +78,10 @@ Si no defines las variables de entorno, la app funciona igual pero guarda en el 
 ├── package.json
 ├── vite.config.js
 ├── .env.example
-├── supabase.sql          # tabla kv + RLS (pegar en Supabase)
-└── src/
-    ├── main.jsx          # arranque
-    ├── Root.jsx          # decide login vs app
-    ├── Login.jsx         # enlace mágico
-    ├── supabase.js       # cliente Supabase
-    ├── store.js          # capa de datos (Supabase o local)
-    └── App.jsx           # la app
+├── supabase.sql          # tabla kv pública (pegar en Supabase)
+├── main.jsx              # arranque
+├── Root.jsx             # monta la app (sin login)
+├── supabase.js          # cliente Supabase
+├── store.js             # capa de datos (Supabase o local)
+└── App.jsx              # la app
 ```
