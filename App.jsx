@@ -7,7 +7,6 @@ import {
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { store } from "./store";
-import { supabase, isConfigured } from "./supabase";
 
 /* ============ paleta y constantes ============ */
 const C = {
@@ -492,12 +491,6 @@ export default function App() {
           </div>
         )}
       </div>
-
-      {isConfigured && (
-        <div style={{ textAlign: "center", marginTop: 10 }}>
-          <button onClick={async () => { await supabase.auth.signOut(); window.location.reload(); }} style={{ color: C.sub, fontSize: 12 }}>Cerrar sesión</button>
-        </div>
-      )}
     </div>
   );
 

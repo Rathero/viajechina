@@ -38,14 +38,12 @@ const supabaseStore = {
     return { key, value: JSON.stringify(data.data) };
   },
   async set(key, value) {
-    const { data: u } = await supabase.auth.getUser();
-    const user_id = u && u.user ? u.user.id : undefined;
-    const { error } = await supabase.from("kv").upsert({ user_id, key, data: JSON.parse(value) }, { onConflict: "user_id,key" });
+    const { error } = await supabase.from("kv").upsert({ key, data: JSON.parse(value) }, { onConflict: "key" });
     if (error) throw error;
     return { key, value };
   },
   async list(prefix) {
-    // RLS limita las filas al usuario actual, así que basta con traer las claves y filtrar.
+    // Espacio público compartido: traemos todas las claves y filtramos por prefijo.
     const { data, error } = await supabase.from("kv").select("key");
     if (error) throw error;
     const p = prefix || "";
