@@ -3,7 +3,7 @@ import {
   Plane, Train, Calendar, Wallet, Luggage, FileText, MapPin, Check, Plus,
   Trash2, ChevronDown, ChevronRight, ChevronLeft, Building2, Sparkles, AlertCircle,
   CreditCard, Wifi, Globe, RotateCcw, Paperclip, Download, StickyNote, X,
-  Pencil, Bus, Car, Ship, ListChecks, ClipboardList, Image as ImageIcon,
+  Pencil, Bus, Car, Ship, ListChecks, ClipboardList, Image as ImageIcon, GripVertical,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { store } from "./store";
@@ -186,6 +186,9 @@ export default function App({ tripId, tripName, onBack }) {
   const [ntask, setNtask] = useState("");
   const [nexp, setNexp] = useState("");
   const [confirmDel, setConfirmDel] = useState(null);
+  const [drag, setDrag] = useState(null); // arrastrar actividades entre días
+  const dragSess = useRef(null);
+  const dragPos = useRef({ x: 0, y: 0 });
   const saveT = useRef(null);
 
   /* cargar */
@@ -325,6 +328,74 @@ export default function App({ tripId, tripName, onBack }) {
     setItin((prev) => prev.map((c) => c.id !== editing.cityId ? c : { ...c, days: c.days.map((d) => d.id !== editing.dayId ? d : { ...d, items: d.items.filter((x) => x.id !== editing.actId) }) }));
     setEditing(null);
   };
+
+  /* ---- arrastrar actividades entre días ---- */
+  const computeDropTarget = (x, y) => {
+    const el = document.elementFromPoint(x, y);
+    const dayEl = el && el.closest("[data-day]");
+    if (!dayEl) return null;
+    const cityId = dayEl.getAttribute("data-city");
+    const dayId = dayEl.getAttribute("data-day");
+    const draggedId = dragSess.current ? dragSess.current.item.id : null;
+    const rows = Array.from(dayEl.querySelectorAll("[data-act-id]"));
+    let beforeId = null;
+    for (const r of rows) {
+      if (r.getAttribute("data-act-id") === draggedId) continue;
+      const rect = r.getBoundingClientRect();
+      if (y < rect.top + rect.height / 2) { beforeId = r.getAttribute("data-act-id"); break; }
+    }
+    return { cityId, dayId, beforeId };
+  };
+  const onActPointerDown = (e, cityId, dayId, item) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    e.preventDefault(); e.stopPropagation();
+    dragSess.current = { item, fromCityId: cityId, fromDayId: dayId, target: null };
+    dragPos.current = { x: e.clientX, y: e.clientY };
+    setDrag({ item, x: e.clientX, y: e.clientY, target: null });
+  };
+  const commitMove = (s) => {
+    const t = s.target;
+    if (!t) return;
+    setItin((prev) => {
+      let moved = null;
+      const removed = prev.map((c) => c.id !== s.fromCityId ? c : { ...c, days: c.days.map((d) => d.id !== s.fromDayId ? d : { ...d, items: d.items.filter((a) => { if (a.id === s.item.id) { moved = a; return false; } return true; }) }) });
+      if (!moved) return prev;
+      return removed.map((c) => c.id !== t.cityId ? c : { ...c, days: c.days.map((d) => {
+        if (d.id !== t.dayId) return d;
+        const items = [...d.items];
+        const idx = t.beforeId ? items.findIndex((a) => a.id === t.beforeId) : -1;
+        if (idx < 0) items.push(moved); else items.splice(idx, 0, moved);
+        return { ...d, items };
+      }) });
+    });
+  };
+  useEffect(() => {
+    if (!drag) return;
+    const move = (e) => {
+      e.preventDefault();
+      dragPos.current = { x: e.clientX, y: e.clientY };
+      const t = computeDropTarget(e.clientX, e.clientY);
+      if (dragSess.current) dragSess.current.target = t;
+      setDrag((d) => d ? { ...d, x: e.clientX, y: e.clientY, target: t } : d);
+    };
+    const end = () => { if (dragSess.current) commitMove(dragSess.current); dragSess.current = null; setDrag(null); };
+    let raf;
+    const loop = () => {
+      const { y } = dragPos.current; const h = window.innerHeight;
+      if (y < 88) window.scrollBy(0, -11); else if (y > h - 104) window.scrollBy(0, 11);
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    window.addEventListener("pointermove", move, { passive: false });
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+    };
+  }, [!!drag]);
 
   /* ---- reservas ---- */
   const patchBkById = (id, patch) => setBookings((prev) => prev.map((b) => b.id !== id ? b : { ...b, ...patch }));
@@ -629,7 +700,7 @@ export default function App({ tripId, tripName, onBack }) {
                   {s.days.map((d) => {
                     const p = d.date ? dparts(d.date) : null;
                     return (
-                      <div key={d.id} className="rounded-xl mb-2" style={{ background: C.card, border: `1px solid ${C.line}` }}>
+                      <div key={d.id} data-day={d.id} data-city={s.id} className="rounded-xl mb-2" style={{ background: C.card, border: `1px solid ${drag && drag.target && drag.target.dayId === d.id ? s.color : C.line}`, boxShadow: drag && drag.target && drag.target.dayId === d.id ? `0 0 0 2px ${s.color}55` : "none", transition: "box-shadow 0.1s" }}>
                         <div className="flex items-center gap-3 px-4 pt-3">
                           <div className="flex flex-col items-center justify-center rounded-lg" style={{ background: C.paper, width: 44, height: 44, flexShrink: 0 }}>
                             <span style={{ ...mono, fontSize: p ? 16 : 18, fontWeight: 800, color: p ? C.ink : C.sub, lineHeight: 1 }}>{p ? p.dd : "—"}</span>
@@ -644,38 +715,49 @@ export default function App({ tripId, tripName, onBack }) {
                         <div className="px-4 py-3 flex flex-col gap-2.5">
                           {d.items.map((a) => {
                             const ty = TYPE[a.type];
+                            const showLine = drag && drag.target && drag.target.dayId === d.id && drag.target.beforeId === a.id;
                             return (
-                              <div key={a.id} className="flex items-start gap-2.5">
-                                <div style={{ marginTop: 1 }}>
-                                  <CheckBox on={a.booked} onClick={() => patchActById(s.id, d.id, a.id, { booked: !a.booked })} />
-                                </div>
-                                <button onClick={() => { setAttErr(""); setEditing({ kind: "act", cityId: s.id, dayId: d.id, actId: a.id }); }} className="flex-1 text-left flex items-start gap-2">
-                                  <span style={{ ...mono, fontSize: 12, color: C.sub, width: 42, flexShrink: 0, marginTop: 1 }}>{a.t}</span>
-                                  <div className="flex-1 min-w-0">
-                                    <div>
-                                      <span style={{ fontSize: 13.5, color: a.x ? C.ink : C.sub }}>{a.x || "(sin título)"}</span>
-                                      <span className="ml-2 inline-block rounded px-1.5" style={{ fontSize: 9.5, fontWeight: 700, color: ty.c, background: ty.c + "1A", textTransform: "uppercase", letterSpacing: 0.4, verticalAlign: "middle" }}>{ty.l}</span>
-                                    </div>
-                                    {(a.price > 0 || (a.att && a.att.length) || a.notes) && (
-                                      <div className="flex items-center gap-2.5 mt-1">
-                                        {a.price > 0 && <span style={{ ...mono, fontSize: 11, color: C.redDeep, fontWeight: 700 }}>{a.cur === "CNY" ? `¥${a.price}` : eur(a.price)}</span>}
-                                        {a.att && a.att.length > 0 && <span className="flex items-center gap-0.5" style={{ fontSize: 11, color: C.sub }}><Paperclip size={11} />{a.att.length}</span>}
-                                        {a.notes && <StickyNote size={12} color={C.sub} />}
-                                      </div>
-                                    )}
+                              <React.Fragment key={a.id}>
+                                {showLine && <div style={{ height: 2, borderRadius: 2, background: s.color }} />}
+                                <div data-act-id={a.id} className="flex items-start gap-2.5" style={{ opacity: drag && drag.item.id === a.id ? 0.4 : 1 }}>
+                                  <div style={{ marginTop: 1 }}>
+                                    <CheckBox on={a.booked} onClick={() => patchActById(s.id, d.id, a.id, { booked: !a.booked })} />
                                   </div>
-                                  <ChevronRight size={16} color={C.line} style={{ marginTop: 2, flexShrink: 0 }} />
-                                </button>
-                              </div>
+                                  <button onClick={() => { setAttErr(""); setEditing({ kind: "act", cityId: s.id, dayId: d.id, actId: a.id }); }} className="flex-1 text-left flex items-start gap-2">
+                                    <span style={{ ...mono, fontSize: 12, color: a.t ? C.sub : C.line, width: 42, flexShrink: 0, marginTop: 1 }}>{a.t || "—"}</span>
+                                    <div className="flex-1 min-w-0">
+                                      <div>
+                                        <span style={{ fontSize: 13.5, color: a.x ? C.ink : C.sub }}>{a.x || "(sin título)"}</span>
+                                        <span className="ml-2 inline-block rounded px-1.5" style={{ fontSize: 9.5, fontWeight: 700, color: ty.c, background: ty.c + "1A", textTransform: "uppercase", letterSpacing: 0.4, verticalAlign: "middle" }}>{ty.l}</span>
+                                      </div>
+                                      {(a.price > 0 || (a.att && a.att.length) || a.notes) && (
+                                        <div className="flex items-center gap-2.5 mt-1">
+                                          {a.price > 0 && <span style={{ ...mono, fontSize: 11, color: C.redDeep, fontWeight: 700 }}>{a.cur === "CNY" ? `¥${a.price}` : eur(a.price)}</span>}
+                                          {a.att && a.att.length > 0 && <span className="flex items-center gap-0.5" style={{ fontSize: 11, color: C.sub }}><Paperclip size={11} />{a.att.length}</span>}
+                                          {a.notes && <StickyNote size={12} color={C.sub} />}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </button>
+                                  <button onPointerDown={(e) => onActPointerDown(e, s.id, d.id, a)} className="p-1" style={{ touchAction: "none", cursor: "grab", color: C.sub, alignSelf: "center", flexShrink: 0 }} aria-label="Arrastrar para mover de día"><GripVertical size={18} /></button>
+                                </div>
+                              </React.Fragment>
                             );
                           })}
+                          {drag && drag.target && drag.target.dayId === d.id && !drag.target.beforeId && (
+                            <div style={{ height: 2, borderRadius: 2, background: s.color }} />
+                          )}
                           {addActFor === d.id ? (
                             <div className="rounded-xl mt-0.5" style={{ background: C.paper, border: `1px solid ${C.line}`, padding: 12 }}>
                               <div className="flex gap-2 mb-2">
-                                <input value={na.t} onChange={(e) => setNa({ ...na, t: e.target.value })} placeholder="10:00" style={{ ...inp, width: 78, ...mono }} />
+                                <input type="time" value={na.t} onChange={(e) => setNa({ ...na, t: e.target.value })} disabled={!na.t} style={{ ...inp, width: 120, ...mono, opacity: na.t ? 1 : 0.45 }} />
                                 <select value={na.type} onChange={(e) => setNa({ ...na, type: e.target.value })} style={{ ...inp, flex: 1 }}>
                                   {Object.keys(TYPE).map((key) => <option key={key} value={key}>{TYPE[key].l}</option>)}
                                 </select>
+                              </div>
+                              <div className="flex items-center gap-2 mb-2">
+                                <CheckBox size={18} on={!na.t} onClick={() => setNa({ ...na, t: na.t ? "" : "12:00" })} />
+                                <button onClick={() => setNa({ ...na, t: na.t ? "" : "12:00" })} style={{ fontSize: 13, color: C.sub }}>Sin hora definida</button>
                               </div>
                               <input value={na.x} onChange={(e) => setNa({ ...na, x: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") addActivity(s.id, d.id); }} placeholder="¿Qué vais a hacer?" style={{ ...inp, marginBottom: 8 }} autoFocus />
                               <div className="flex gap-2">
@@ -1108,10 +1190,16 @@ export default function App({ tripId, tripName, onBack }) {
           <div className="px-5 py-4">
             {k === "act" && (
               <>
-                <div className="flex gap-2">
-                  <div style={{ width: 90 }}><Field label="Hora"><input value={act.t} onChange={(e) => patchAct({ t: e.target.value })} placeholder="10:00" style={{ ...inp, ...mono }} /></Field></div>
-                  <div className="flex-1"><Field label="Tipo"><select value={act.type} onChange={(e) => patchAct({ type: e.target.value })} style={inp}>{Object.keys(TYPE).map((key) => <option key={key} value={key}>{TYPE[key].l}</option>)}</select></Field></div>
-                </div>
+                <Field label="Hora">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <input type="time" value={act.t || ""} onChange={(e) => patchAct({ t: e.target.value })} disabled={!act.t} style={{ ...inp, ...mono, width: 150, opacity: act.t ? 1 : 0.45 }} />
+                    <div className="flex items-center gap-2">
+                      <CheckBox size={18} on={!act.t} onClick={() => patchAct({ t: act.t ? "" : "12:00" })} />
+                      <button onClick={() => patchAct({ t: act.t ? "" : "12:00" })} style={{ fontSize: 13, color: C.sub }}>Sin hora definida</button>
+                    </div>
+                  </div>
+                </Field>
+                <Field label="Tipo"><select value={act.type} onChange={(e) => patchAct({ type: e.target.value })} style={inp}>{Object.keys(TYPE).map((key) => <option key={key} value={key}>{TYPE[key].l}</option>)}</select></Field>
                 <Field label="Actividad"><input value={act.x} onChange={(e) => patchAct({ x: e.target.value })} placeholder="¿Qué vais a hacer?" style={inp} /></Field>
                 <Field label="Precio" hint="Se suma automáticamente a tus gastos.">
                   <div className="flex gap-2">
@@ -1228,6 +1316,12 @@ export default function App({ tripId, tripName, onBack }) {
       {lightbox && (
         <div onClick={() => setLightbox(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <img src={lightbox} alt="" style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: 8 }} />
+        </div>
+      )}
+      {drag && (
+        <div style={{ position: "fixed", left: drag.x + 14, top: drag.y - 14, zIndex: 80, pointerEvents: "none", background: C.card, border: `1px solid ${C.line}`, borderRadius: 10, boxShadow: "0 10px 28px rgba(20,16,12,0.22)", padding: "8px 12px", maxWidth: 260 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: C.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{drag.item.x || "(sin título)"}</div>
+          <div style={{ ...mono, fontSize: 11, color: C.sub }}>{drag.item.t || "Sin hora"}</div>
         </div>
       )}
       {confirmDel && (
