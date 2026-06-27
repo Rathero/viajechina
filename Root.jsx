@@ -37,8 +37,16 @@ function ResetPassword({ onDone }) {
 }
 
 export default function Root() {
-  // Modo local (sin credenciales Supabase): se salta el login y abre un viaje local.
-  if (!isConfigured) return <App tripId="local" tripName="Mi viaje" onBack={null} />;
+  // Sin credenciales de Supabase no se arranca: todos los datos viven en la BBDD,
+  // no hay almacenamiento local. Mostramos cómo configurarlo.
+  if (!isConfigured) return (
+    <div style={center}>
+      <div style={{ textAlign: "center", maxWidth: 440, padding: 24 }}>
+        <div style={{ fontWeight: 700, color: C.ink, marginBottom: 8 }}>Falta configurar Supabase</div>
+        <div>Define <code>VITE_SUPABASE_URL</code> y <code>VITE_SUPABASE_ANON_KEY</code> en <code>.env.local</code> (y en Vercel) y reinicia. Todos los datos se guardan en la base de datos.</div>
+      </div>
+    </div>
+  );
 
   const [ready, setReady] = useState(false);
   const [session, setSession] = useState(null);

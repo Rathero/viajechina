@@ -65,10 +65,13 @@ renombrar, abrir y borrar sus viajes; cada viaje es **privado de su dueño** (RL
   actividades, reservas, gastos, maleta, checklists, ajustes) en `trip_<id>` y cada **adjunto** en
   `trip_<id>_att_<id>`. Ambas tablas con RLS: cada usuario solo accede a sus filas.
 
-## Modo local (sin Supabase)
+## Todo en la base de datos (sin localStorage)
 
-Si no defines las variables de entorno, la app se salta el login y abre un único viaje local
-guardado en el navegador (`localStorage`). Útil para probar el diseño sin nube.
+Toda la información (viajes, contenido y adjuntos) se guarda **exclusivamente en Supabase**.
+La app **no** usa `localStorage` para los datos. Por eso las variables de entorno son
+obligatorias: sin `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` la app no arranca y muestra
+un aviso para configurarlas. (Lo único que Supabase guarda en el navegador es el token de
+sesión para mantenerte logueado entre recargas.)
 
 ## Notas
 
