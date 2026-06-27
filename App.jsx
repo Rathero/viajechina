@@ -2,27 +2,28 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   Plane, Train, Calendar, Wallet, Luggage, FileText, MapPin, Check, Plus,
   Trash2, ChevronDown, ChevronRight, Building2, Sparkles, AlertCircle,
-  CreditCard, Wifi, Globe, RotateCcw, Paperclip, Download, StickyNote, X,
-  Pencil, Bus, Car, Ship,
+  CreditCard, Wifi, Globe, Paperclip, Download, StickyNote, X,
+  Pencil, Bus, Car, Ship, ChevronsUpDown, ChevronsDownUp, GripVertical,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { store } from "./store";
 
 /* ============ paleta y constantes ============ */
 const C = {
-  ink: "#26211C", sub: "#6F6358", paper: "#F5F1EA", card: "#FFFFFF",
-  red: "#C0392B", redDeep: "#7E2A20", jade: "#2E7D6B", line: "#E5DCCF",
+  ink: "#2A1A14", sub: "#6E6A66", paper: "#E9EEF4", card: "#FFFFFF",
+  red: "#D8232A", redDeep: "#9E1019", jade: "#0E9C73", gold: "#EAA00C",
+  hero: "#7E1620", line: "#E2E5EA",
 };
 const TYPE = {
-  historia: { c: "#9A6A2F", l: "Historia" },
-  cultura: { c: "#2E7D6B", l: "Cultura" },
-  naturaleza: { c: "#4F7A3A", l: "Naturaleza" },
-  tech: { c: "#3D5A98", l: "Tech" },
-  comida: { c: "#C0392B", l: "Comida" },
-  traslado: { c: "#8A8079", l: "Traslado" },
+  historia: { c: "#B5791F", l: "Historia" },
+  cultura: { c: "#0E9C73", l: "Cultura" },
+  naturaleza: { c: "#3D9A3F", l: "Naturaleza" },
+  tech: { c: "#2E6BD6", l: "Tech" },
+  comida: { c: "#D8232A", l: "Comida" },
+  traslado: { c: "#8A7E72", l: "Traslado" },
   logistica: { c: "#A99F93", l: "Logística" },
 };
-const PALETTE = ["#C0392B", "#9A6A2F", "#4F7A3A", "#2E7D6B", "#3D5A98", "#7E5BA6", "#B0703A", "#3F7E8C", "#A23E5C", "#6B7A3A"];
+const PALETTE = ["#D8232A", "#D9790A", "#3D9A3F", "#0E9C73", "#2E6BD6", "#8A4FD8", "#C85A12", "#0E94A8", "#D6336C", "#5E8C1A"];
 const TRANSPORTS = ["Vuelo", "Tren", "Bus", "Coche", "Barco"];
 const TR_ICON = { Vuelo: Plane, Tren: Train, Bus: Bus, Coche: Car, Barco: Ship };
 const DOW = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
@@ -99,7 +100,7 @@ const TIPS = [
   { icon: Building2, t: "Registro policial", x: "Si te alojas en hotel te registran al hacer check-in. En Shanghái, si hace falta, puede hacerse online." },
 ];
 const EXP_CATS = ["Vuelos", "Alojamiento", "Transporte", "Comida", "Actividades", "Compras", "Otros"];
-const EXP_COLORS = { Vuelos: "#3D5A98", Alojamiento: "#C0392B", Transporte: "#9A6A2F", Comida: "#E0883B", Actividades: "#2E7D6B", Compras: "#7E5BA6", Otros: "#8A8079" };
+const EXP_COLORS = { Vuelos: "#2E6BD6", Alojamiento: "#D8232A", Transporte: "#B5791F", Comida: "#E0820A", Actividades: "#0E9C73", Compras: "#8A4FD8", Otros: "#8A7E72" };
 const PACK_CATS = ["Documentos", "Ropa", "Electrónica", "Aseo y salud", "Otros"];
 const TYPE_TO_CAT = { comida: "Comida", traslado: "Transporte", logistica: "Otros", historia: "Actividades", cultura: "Actividades", naturaleza: "Actividades", tech: "Actividades" };
 
@@ -153,7 +154,8 @@ export default function App() {
   const [attErr, setAttErr] = useState("");
   const [lightbox, setLightbox] = useState(null);
   const [hydrated, setHydrated] = useState(false);
-  const [confirmReset, setConfirmReset] = useState(false);
+  const [dragAct, setDragAct] = useState(null);   // actividad que se está arrastrando { cityId, dayId, actId }
+  const [dragOverDay, setDragOverDay] = useState(null); // dayId resaltado como destino
   // formularios
   const [nc, setNc] = useState({ name: "", start: "", end: "", mode: "" });
   const [showAddCity, setShowAddCity] = useState(false);
@@ -198,14 +200,15 @@ export default function App() {
     })();
   }, []);
 
-  /* guardar */
+  /* guardar (no autoguarda mientras se crea algo nuevo: solo al pulsar Guardar) */
   useEffect(() => {
     if (!hydrated) return;
     if (saveT.current) clearTimeout(saveT.current);
+    if (editing && editing.isNew) return;
     saveT.current = setTimeout(async () => {
       try { await store.set(STORAGE_KEY, JSON.stringify({ tripTitle, itin, bookings, packing, expenses, docsChk, rate, budget })); } catch (e) {}
     }, 400);
-  }, [tripTitle, itin, bookings, packing, expenses, docsChk, rate, budget, hydrated]);
+  }, [tripTitle, itin, bookings, packing, expenses, docsChk, rate, budget, hydrated, editing]);
 
   /* ---- adjuntos ---- */
   const purgeAtt = (attId) => {
@@ -264,7 +267,7 @@ export default function App() {
     const date = last ? addDaysISO(last, 1) : "";
     const id = cityId + "-d" + Math.random().toString(36).slice(2, 6);
     setItin((prev) => prev.map((x) => x.id !== cityId ? x : { ...x, days: [...x.days, { id, date, title: "", items: [] }] }));
-    setEditing({ kind: "day", cityId, dayId: id });
+    setEditing({ kind: "day", cityId, dayId: id, isNew: true });
   };
   const patchDayById = (cityId, dayId, patch) => setItin((prev) => prev.map((c) => c.id !== cityId ? c : { ...c, days: c.days.map((d) => d.id !== dayId ? d : { ...d, ...patch }) }));
   const deleteDay = (cityId, dayId) => {
@@ -273,6 +276,20 @@ export default function App() {
     if (d) d.items.forEach((a) => (a.att || []).forEach(purgeAtt));
     setItin((prev) => prev.map((x) => x.id !== cityId ? x : { ...x, days: x.days.filter((y) => y.id !== dayId) }));
     setEditing(null);
+  };
+  /* fijar el rango de fechas de la parada: regenera los días entre llegada y salida,
+     conservando el título y las actividades de los días que sigan dentro del rango */
+  const setCityRange = (cityId, start, end) => {
+    const dates = rangeISO(start, end);
+    const c = itin.find((x) => x.id === cityId);
+    if (c) c.days.forEach((d) => { if (!d.date || !dates.includes(d.date)) (d.items || []).forEach((a) => (a.att || []).forEach(purgeAtt)); });
+    setItin((prev) => prev.map((x) => {
+      if (x.id !== cityId) return x;
+      const byDate = {};
+      x.days.forEach((d) => { if (d.date && !byDate[d.date]) byDate[d.date] = d; });
+      const newDays = dates.map((dt, i) => byDate[dt] || { id: `${cityId}-d${i}-${Math.random().toString(36).slice(2, 6)}`, date: dt, title: "", items: [] });
+      return { ...x, days: newDays };
+    }));
   };
 
   /* ---- actividades ---- */
@@ -283,13 +300,28 @@ export default function App() {
     const id = dayId + "-a" + Math.random().toString(36).slice(2, 7);
     setItin((prev) => prev.map((c) => c.id !== cityId ? c : { ...c, days: c.days.map((d) => d.id !== dayId ? d : { ...d, items: [...d.items, { id, t: "12:00", x: "", type: "cultura", booked: false, notes: "", price: null, cur: "EUR", att: [] }] }) }));
     setAttErr("");
-    setEditing({ kind: "act", cityId, dayId, actId: id });
+    setEditing({ kind: "act", cityId, dayId, actId: id, isNew: true });
   };
   const deleteActivity = () => {
     const a = curAct();
     if (a) a.att.forEach(purgeAtt);
     setItin((prev) => prev.map((c) => c.id !== editing.cityId ? c : { ...c, days: c.days.map((d) => d.id !== editing.dayId ? d : { ...d, items: d.items.filter((x) => x.id !== editing.actId) }) }));
     setEditing(null);
+  };
+  /* mover una actividad (arrastrar y soltar) a otro día */
+  const moveActivity = (drag, toCityId, toDayId) => {
+    if (!drag || drag.dayId === toDayId) return;
+    setItin((prev) => {
+      let moved = null;
+      const without = prev.map((c) => ({ ...c, days: c.days.map((d) => {
+        if (d.id !== drag.dayId) return d;
+        const f = d.items.find((x) => x.id === drag.actId);
+        if (f) moved = f;
+        return { ...d, items: d.items.filter((x) => x.id !== drag.actId) };
+      }) }));
+      if (!moved) return prev;
+      return without.map((c) => c.id !== toCityId ? c : { ...c, days: c.days.map((d) => d.id !== toDayId ? d : { ...d, items: [...d.items, moved] }) });
+    });
   };
 
   /* ---- reservas ---- */
@@ -341,11 +373,23 @@ export default function App() {
   };
   const curBk = () => (editing && editing.kind === "booking" ? bookings.find((b) => b.id === editing.id) : null) || null;
 
-  const resetAll = async () => {
-    Object.keys(attMap).forEach((id) => { try { store.delete(ATT_PREFIX + id); } catch (e) {} });
-    setItin([]); setBookings([]); setOpenCity({}); setPacking(DEFAULT_PACKING);
-    setExpenses([]); setDocsChk({}); setRate(7.7); setBudget(0); setAttMap({}); setTripTitle("China"); setConfirmReset(false);
-    try { await store.delete(STORAGE_KEY); } catch (e) {}
+  /* cerrar el modal confirmando (Guardar) o descartando lo recién creado (X / fuera) */
+  const saveEdit = () => { setEditing(null); setAttErr(""); };
+  const cancelEdit = () => {
+    if (editing && editing.isNew) {
+      if (editing.kind === "act") {
+        const a = curAct();
+        if (a) (a.att || []).forEach(purgeAtt);
+        setItin((prev) => prev.map((c) => c.id !== editing.cityId ? c : { ...c, days: c.days.map((d) => d.id !== editing.dayId ? d : { ...d, items: d.items.filter((x) => x.id !== editing.actId) }) }));
+      } else if (editing.kind === "day") {
+        const c = itin.find((x) => x.id === editing.cityId);
+        const d = c && c.days.find((y) => y.id === editing.dayId);
+        if (d) d.items.forEach((a) => (a.att || []).forEach(purgeAtt));
+        setItin((prev) => prev.map((x) => x.id !== editing.cityId ? x : { ...x, days: x.days.filter((y) => y.id !== editing.dayId) }));
+      }
+    }
+    setEditing(null);
+    setAttErr("");
   };
 
   /* ---- derivados ---- */
@@ -411,34 +455,37 @@ export default function App() {
   /* ============ resumen ============ */
   const renderResumen = () => (
     <div className="px-5 pb-6">
-      <div className="rounded-2xl px-5 pt-6 pb-5 mb-4" style={{ background: C.ink, color: "#F5F1EA" }}>
-        <div className="flex items-center gap-2 mb-1" style={{ color: "#D9A441", ...mono, fontSize: 12, letterSpacing: 2 }}>
-          <Plane size={13} /> MI VIAJE
+      <div className="rounded-2xl px-5 py-4 mb-3" style={{ background: `linear-gradient(135deg, ${C.hero} 0%, #5E0E16 100%)`, color: "#FFF6EA", boxShadow: `0 6px 18px ${C.hero}33`, border: `1px solid ${C.gold}33` }}>
+        <div className="flex items-center gap-2 mb-1.5" style={{ color: C.gold, ...mono, fontSize: 11, letterSpacing: 2 }}>
+          <Plane size={12} /> MI VIAJE
         </div>
-        <input value={tripTitle} onChange={(e) => setTripTitle(e.target.value)} placeholder="Nombre del viaje"
-          style={{ fontSize: 42, fontWeight: 800, lineHeight: 1.05, letterSpacing: -1, background: "transparent", border: "none", outline: "none", color: "#F5F1EA", width: "100%", padding: 0 }} />
-        <div className="mt-1" style={{ color: "#C9BFB2", fontSize: 15, fontWeight: 600 }}>
-          {itin.length ? `${itin[0].city} → ${itin[itin.length - 1].city}` : "Añade tu primera parada"}
-        </div>
-        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-4" style={{ ...mono, fontSize: 13, color: "#C9BFB2" }}>
-          <span>{minDate && maxDate ? `${dparts(minDate).dd} ${dparts(minDate).mmm} – ${dparts(maxDate).dd} ${dparts(maxDate).mmm}` : "Sin fechas aún"}</span>
-          <span style={{ color: "#5C534A" }}>|</span>
-          <span>{dates.length} día{dates.length === 1 ? "" : "s"} · {itin.length} {itin.length === 1 ? "parada" : "paradas"}</span>
+        <div className="flex items-center justify-between gap-3">
+          <input value={tripTitle} onChange={(e) => setTripTitle(e.target.value)} placeholder="Nombre del viaje"
+            style={{ fontSize: 30, fontWeight: 800, lineHeight: 1, letterSpacing: -0.5, background: "transparent", border: "none", outline: "none", color: "#FFF6EA", flex: 1, minWidth: 0, padding: 0 }} />
+          <div className="text-right" style={{ flexShrink: 0 }}>
+            <div style={{ color: "#FBE3D6", fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap" }}>
+              {itin.length ? `${itin[0].city} → ${itin[itin.length - 1].city}` : "Añade tu primera parada"}
+            </div>
+            <div className="mt-0.5" style={{ ...mono, fontSize: 11, color: "#EEC6B6", lineHeight: 1.5 }}>
+              <div>{minDate && maxDate ? `${dparts(minDate).dd} ${dparts(minDate).mmm} – ${dparts(maxDate).dd} ${dparts(maxDate).mmm}` : "Sin fechas aún"}</div>
+              <div>{dates.length} día{dates.length === 1 ? "" : "s"} · {itin.length} {itin.length === 1 ? "parada" : "paradas"}</div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        <Card style={{ padding: 16 }}>
-          <div style={{ color: C.sub, fontSize: 12, fontWeight: 600 }}>{countdown.label}</div>
+      <div className="grid grid-cols-2 gap-3 mb-3">
+        <Card style={{ padding: 12 }}>
+          <div style={{ color: C.sub, fontSize: 11, fontWeight: 600 }}>{countdown.label}</div>
           <div className="flex items-end gap-1">
-            <span style={{ fontSize: 38, fontWeight: 800, color: C.red, lineHeight: 1 }}>{countdown.value}</span>
-            <span style={{ color: C.sub, fontSize: 13, marginBottom: 6 }}>{countdown.unit}</span>
+            <span style={{ fontSize: 26, fontWeight: 800, color: C.red, lineHeight: 1 }}>{countdown.value}</span>
+            <span style={{ color: C.sub, fontSize: 12, marginBottom: 3 }}>{countdown.unit}</span>
           </div>
         </Card>
-        <Card style={{ padding: 16 }}>
-          <div style={{ color: C.sub, fontSize: 12, fontWeight: 600 }}>Gastado</div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: C.ink, lineHeight: 1.1 }}>{eur(totalSpent)}</div>
-          <div style={{ color: C.sub, fontSize: 11 }}>{expenses.length + routeExpenses.length} gasto{expenses.length + routeExpenses.length === 1 ? "" : "s"}</div>
+        <Card style={{ padding: 12 }}>
+          <div style={{ color: C.sub, fontSize: 11, fontWeight: 600 }}>Gastado</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: C.ink, lineHeight: 1.1 }}>{eur(totalSpent)}</div>
+          <div style={{ color: C.sub, fontSize: 10.5 }}>{expenses.length + routeExpenses.length} gasto{expenses.length + routeExpenses.length === 1 ? "" : "s"}</div>
         </Card>
       </div>
 
@@ -477,20 +524,6 @@ export default function App() {
           </Card>
         ))}
       </div>
-
-      <div style={{ textAlign: "center", marginTop: 18 }}>
-        {!confirmReset ? (
-          <button onClick={() => setConfirmReset(true)} className="inline-flex items-center gap-1.5" style={{ color: C.sub, fontSize: 12 }}>
-            <RotateCcw size={13} /> Reiniciar datos guardados
-          </button>
-        ) : (
-          <div className="inline-flex items-center gap-3">
-            <span style={{ color: C.sub, fontSize: 12 }}>¿Borrar todo?</span>
-            <button onClick={resetAll} style={{ color: C.red, fontSize: 12, fontWeight: 700 }}>Sí, reiniciar</button>
-            <button onClick={() => setConfirmReset(false)} style={{ color: C.sub, fontSize: 12 }}>Cancelar</button>
-          </div>
-        )}
-      </div>
     </div>
   );
 
@@ -499,7 +532,19 @@ export default function App() {
     <div className="px-4 pb-6">
       <div className="px-1 pt-1 pb-3 flex items-end justify-between">
         <div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: C.ink }}>Ruta</div>
+          <div className="flex items-center gap-2">
+            <div style={{ fontSize: 22, fontWeight: 800, color: C.ink }}>Ruta</div>
+            {itin.length > 0 && (() => {
+              const allOpen = itin.every((c) => openCity[c.id]);
+              return (
+                <button onClick={() => setOpenCity(Object.fromEntries(itin.map((c) => [c.id, !allOpen])))}
+                  className="flex items-center justify-center rounded-lg" title={allOpen ? "Colapsar todas las paradas" : "Desplegar todas las paradas"}
+                  style={{ width: 30, height: 30, border: `1px solid ${C.line}`, background: C.card }}>
+                  {allOpen ? <ChevronsDownUp size={16} color={C.sub} /> : <ChevronsUpDown size={16} color={C.sub} />}
+                </button>
+              );
+            })()}
+          </div>
           <div style={{ color: C.sub, fontSize: 13 }}>Añade paradas, días y actividades a tu ritmo.</div>
         </div>
         <button onClick={() => setShowAddCity((v) => !v)} className="flex items-center gap-1 rounded-lg px-3 py-2" style={{ background: C.red, color: "#fff", fontSize: 13, fontWeight: 600 }}>
@@ -536,6 +581,9 @@ export default function App() {
       ) : itin.map((s, si) => {
         const open = openCity[s.id];
         const TrI = s.into ? (TR_ICON[s.into.mode] || MapPin) : null;
+        const cd = s.days.map((d) => d.date).filter(Boolean).sort();
+        const cStart = cd[0], cEnd = cd[cd.length - 1];
+        const rangeLabel = cStart ? (cEnd && cEnd !== cStart ? `${dparts(cStart).dd} ${dparts(cStart).mmm} – ${dparts(cEnd).dd} ${dparts(cEnd).mmm}` : `${dparts(cStart).dd} ${dparts(cStart).mmm}`) : null;
         return (
           <div key={s.id} className="flex gap-3">
             <div className="flex flex-col items-center" style={{ width: 18 }}>
@@ -545,7 +593,12 @@ export default function App() {
             <div className="flex-1 pb-3">
               <div id={"city-" + s.id} className="w-full flex items-center justify-between rounded-xl px-4 py-3 mb-2" style={{ background: C.card, border: `1px solid ${C.line}` }}>
                 <button onClick={() => setOpenCity((o) => ({ ...o, [s.id]: !o[s.id] }))} className="flex-1 text-left">
-                  <div style={{ fontWeight: 800, color: C.ink, fontSize: 16 }}>{s.city}</div>
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <span style={{ fontWeight: 800, color: C.ink, fontSize: 16 }}>{s.city}</span>
+                    {rangeLabel
+                      ? <span style={{ ...mono, fontSize: 11.5, fontWeight: 700, color: s.color }}>{rangeLabel}</span>
+                      : <span style={{ fontSize: 11.5, color: C.sub }}>Sin fechas</span>}
+                  </div>
                   {s.into && s.into.mode && (
                     <div className="flex items-center gap-1.5 mt-0.5" style={{ color: s.color, fontSize: 11, fontWeight: 600 }}>
                       {TrI && <TrI size={11} />} {s.into.mode}{s.into.detail ? ` · ${s.into.detail}` : ""}
@@ -563,8 +616,12 @@ export default function App() {
                 <>
                   {s.days.map((d) => {
                     const p = d.date ? dparts(d.date) : null;
+                    const isDropTarget = dragAct && dragOverDay === d.id && dragAct.dayId !== d.id;
                     return (
-                      <div key={d.id} className="rounded-xl mb-2" style={{ background: C.card, border: `1px solid ${C.line}` }}>
+                      <div key={d.id} className="rounded-xl mb-2"
+                        onDragOver={(e) => { if (dragAct && dragAct.dayId !== d.id) { e.preventDefault(); if (dragOverDay !== d.id) setDragOverDay(d.id); } }}
+                        onDrop={(e) => { e.preventDefault(); moveActivity(dragAct, s.id, d.id); setDragAct(null); setDragOverDay(null); }}
+                        style={{ background: isDropTarget ? C.jade + "0F" : C.card, border: `1.5px ${isDropTarget ? "dashed " + C.jade : "solid " + C.line}` }}>
                         <div className="flex items-center gap-3 px-4 pt-3">
                           <div className="flex flex-col items-center justify-center rounded-lg" style={{ background: C.paper, width: 44, height: 44, flexShrink: 0 }}>
                             <span style={{ ...mono, fontSize: p ? 16 : 18, fontWeight: 800, color: p ? C.ink : C.sub, lineHeight: 1 }}>{p ? p.dd : "—"}</span>
@@ -579,13 +636,20 @@ export default function App() {
                         <div className="px-4 py-3 flex flex-col gap-2.5">
                           {d.items.map((a) => {
                             const ty = TYPE[a.type];
+                            const conflict = a.t && a.t !== "SD" && d.items.some((o) => o.id !== a.id && o.t === a.t);
+                            const dragging = dragAct && dragAct.actId === a.id;
                             return (
-                              <div key={a.id} className="flex items-start gap-2.5">
+                              <div key={a.id} draggable
+                                onDragStart={(e) => { setDragAct({ cityId: s.id, dayId: d.id, actId: a.id }); e.dataTransfer.effectAllowed = "move"; try { e.dataTransfer.setData("text/plain", a.id); } catch (er) {} }}
+                                onDragEnd={() => { setDragAct(null); setDragOverDay(null); }}
+                                className="flex items-start gap-2 rounded-lg"
+                                style={{ border: `1.5px solid ${conflict ? C.red : "transparent"}`, background: conflict ? C.red + "0D" : "transparent", padding: "5px 6px", opacity: dragging ? 0.4 : 1, cursor: "grab" }}>
+                                <GripVertical size={15} color={C.line} style={{ marginTop: 3, flexShrink: 0 }} />
                                 <div style={{ marginTop: 1 }}>
                                   <CheckBox on={a.booked} onClick={() => patchActById(s.id, d.id, a.id, { booked: !a.booked })} />
                                 </div>
-                                <button onClick={() => { setAttErr(""); setEditing({ kind: "act", cityId: s.id, dayId: d.id, actId: a.id }); }} className="flex-1 text-left flex items-start gap-2">
-                                  <span style={{ ...mono, fontSize: 12, color: C.sub, width: 42, flexShrink: 0, marginTop: 1 }}>{a.t}</span>
+                                <button onClick={() => { setAttErr(""); setEditing({ kind: "act", cityId: s.id, dayId: d.id, actId: a.id }); }} className="flex-1 text-left flex items-start gap-2 min-w-0">
+                                  <span style={{ ...mono, fontSize: 12, color: a.t === "SD" ? C.ink : C.sub, fontWeight: a.t === "SD" ? 800 : 400, width: 42, flexShrink: 0, marginTop: 1 }}>{a.t || "—"}</span>
                                   <div className="flex-1 min-w-0">
                                     <div>
                                       <span style={{ fontSize: 13.5, color: a.x ? C.ink : C.sub }}>{a.x || "(sin título)"}</span>
@@ -937,30 +1001,39 @@ export default function App() {
     const k = editing.kind;
     let title = "", subtitle = "", attList = [];
     let act = null, bk = null, city = null, day = null;
-    if (k === "act") { act = curAct(); if (!act) return null; const dd = curDayForAct(); subtitle = dd ? `${dd.date ? `${dparts(dd.date).dow} ${dparts(dd.date).dd} ${dparts(dd.date).mmm} · ` : ""}${dd.title || "Día"}` : ""; title = "Detalle de actividad"; attList = act.att || []; }
+    const isNew = !!(editing && editing.isNew);
+    if (k === "act") { act = curAct(); if (!act) return null; const dd = curDayForAct(); subtitle = dd ? `${dd.date ? `${dparts(dd.date).dow} ${dparts(dd.date).dd} ${dparts(dd.date).mmm} · ` : ""}${dd.title || "Día"}` : ""; title = isNew ? "Nueva actividad" : "Detalle de actividad"; attList = act.att || []; }
     else if (k === "booking") { bk = curBk(); if (!bk) return null; subtitle = `Reserva · ${bk.type}`; title = "Detalle de reserva"; attList = bk.att || []; }
     else if (k === "city") { city = curCity(); if (!city) return null; subtitle = "Parada"; title = "Editar parada"; }
-    else if (k === "day") { city = curCity(); day = curDayObj(); if (!day) return null; subtitle = city ? city.city : "Día"; title = "Editar día"; }
+    else if (k === "day") { city = curCity(); day = curDayObj(); if (!day) return null; subtitle = city ? city.city : "Día"; title = isNew ? "Nuevo día" : "Editar día"; }
 
     const overlay = { position: "fixed", inset: 0, background: "rgba(20,16,12,0.45)", zIndex: 50, display: "flex", alignItems: "flex-end", justifyContent: "center" };
     const sheet = { background: C.paper, width: "100%", maxWidth: 480, maxHeight: "90vh", overflowY: "auto", borderTopLeftRadius: 20, borderTopRightRadius: 20 };
 
     return (
-      <div onClick={() => { setEditing(null); setAttErr(""); }} style={overlay}>
+      <div onClick={cancelEdit} style={overlay}>
         <div onClick={(e) => e.stopPropagation()} style={sheet}>
           <div className="flex items-center justify-between px-5 py-4 sticky top-0" style={{ background: C.paper, borderBottom: `1px solid ${C.line}`, zIndex: 1 }}>
             <div>
               <div style={{ fontSize: 11, color: C.sub, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>{subtitle}</div>
               <div style={{ fontSize: 18, fontWeight: 800, color: C.ink }}>{title}</div>
             </div>
-            <button onClick={() => { setEditing(null); setAttErr(""); }} className="rounded-full p-1.5" style={{ background: C.card, border: `1px solid ${C.line}` }}><X size={18} color={C.sub} /></button>
+            <button onClick={cancelEdit} className="rounded-full p-1.5" style={{ background: C.card, border: `1px solid ${C.line}` }}><X size={18} color={C.sub} /></button>
           </div>
 
           <div className="px-5 py-4">
             {k === "act" && (
               <>
                 <div className="flex gap-2">
-                  <div style={{ width: 90 }}><Field label="Hora"><input value={act.t} onChange={(e) => patchAct({ t: e.target.value })} placeholder="10:00" style={{ ...inp, ...mono }} /></Field></div>
+                  <div style={{ width: 150 }}>
+                    <Field label="Hora" hint="SD = sin definir">
+                      <div className="flex gap-1.5">
+                        <input value={act.t === "SD" ? "" : act.t} onChange={(e) => patchAct({ t: e.target.value })} placeholder="10:00" disabled={act.t === "SD"} style={{ ...inp, ...mono, flex: 1, minWidth: 0, padding: "10px 8px", background: act.t === "SD" ? C.paper : C.card }} />
+                        <button onClick={() => patchAct({ t: act.t === "SD" ? "" : "SD" })} title="Sin definir"
+                          style={{ flexShrink: 0, width: 44, borderRadius: 10, fontSize: 13, fontWeight: 800, ...mono, color: act.t === "SD" ? "#fff" : C.sub, background: act.t === "SD" ? C.red : C.card, border: `1px solid ${act.t === "SD" ? C.red : C.line}` }}>SD</button>
+                      </div>
+                    </Field>
+                  </div>
                   <div className="flex-1"><Field label="Tipo"><select value={act.type} onChange={(e) => patchAct({ type: e.target.value })} style={inp}>{Object.keys(TYPE).map((key) => <option key={key} value={key}>{TYPE[key].l}</option>)}</select></Field></div>
                 </div>
                 <Field label="Actividad"><input value={act.x} onChange={(e) => patchAct({ x: e.target.value })} placeholder="¿Qué vais a hacer?" style={inp} /></Field>
@@ -975,7 +1048,14 @@ export default function App() {
                 </button>
                 <Field label="Notas"><textarea value={act.notes} onChange={(e) => patchAct({ notes: e.target.value })} rows={3} placeholder="Entradas, horarios, direcciones, ideas…" style={{ ...inp, resize: "none" }} /></Field>
                 {renderAttachments(attList)}
-                <button onClick={deleteActivity} className="w-full flex items-center justify-center gap-2 rounded-xl py-3 mt-2" style={{ color: C.red, border: `1px solid ${C.line}`, fontSize: 13, fontWeight: 600 }}><Trash2 size={15} /> Eliminar actividad</button>
+                {isNew ? (
+                  <div className="flex gap-2 mt-2">
+                    <button onClick={cancelEdit} className="flex-1 flex items-center justify-center rounded-xl py-3" style={{ color: C.sub, border: `1px solid ${C.line}`, fontSize: 13, fontWeight: 600 }}>Cancelar</button>
+                    <button onClick={saveEdit} className="flex-1 flex items-center justify-center gap-2 rounded-xl py-3" style={{ background: C.red, color: "#fff", fontSize: 13, fontWeight: 700 }}><Check size={16} /> Guardar actividad</button>
+                  </div>
+                ) : (
+                  <button onClick={deleteActivity} className="w-full flex items-center justify-center gap-2 rounded-xl py-3 mt-2" style={{ color: C.red, border: `1px solid ${C.line}`, fontSize: 13, fontWeight: 600 }}><Trash2 size={15} /> Eliminar actividad</button>
+                )}
               </>
             )}
 
@@ -1013,7 +1093,41 @@ export default function App() {
                     {city.into && <input value={city.into.detail || ""} onChange={(e) => patchCityById(editing.cityId, { into: { ...city.into, detail: e.target.value } })} placeholder="Detalle (p. ej. ~5h)" style={{ ...inp, flex: 1 }} />}
                   </div>
                 </Field>
-                <div style={{ fontSize: 12, color: C.sub, marginBottom: 12 }}>Los días y actividades de esta parada se gestionan en la pantalla de Ruta.</div>
+                {(() => {
+                  const cDates = city.days.map((d) => d.date).filter(Boolean).sort();
+                  const cStart = cDates[0] || "";
+                  const cEnd = cDates[cDates.length - 1] || "";
+                  const sortedDays = [...city.days].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+                  return (
+                    <>
+                      <div className="flex gap-2">
+                        <div className="flex-1"><Field label="Llegada"><input type="date" value={cStart} onChange={(e) => setCityRange(editing.cityId, e.target.value, cEnd || e.target.value)} style={{ ...inp, ...mono, fontSize: 12 }} /></Field></div>
+                        <div className="flex-1"><Field label="Salida"><input type="date" value={cEnd} onChange={(e) => setCityRange(editing.cityId, cStart || e.target.value, e.target.value)} style={{ ...inp, ...mono, fontSize: 12 }} /></Field></div>
+                      </div>
+                      <div style={{ fontSize: 11.5, color: C.sub, marginTop: -6, marginBottom: 12 }}>
+                        Los días se crean automáticamente entre la llegada y la salida. Las actividades se gestionan en la pantalla de Ruta.
+                      </div>
+                      {sortedDays.length > 0 && (
+                        <Field label={`${sortedDays.length} día${sortedDays.length === 1 ? "" : "s"} en la parada`}>
+                          <div className="flex flex-col gap-2">
+                            {sortedDays.map((d, i) => {
+                              const p = d.date ? dparts(d.date) : null;
+                              return (
+                                <div key={d.id} className="rounded-lg p-2.5" style={{ background: C.card, border: `1px solid ${C.line}` }}>
+                                  <div className="flex items-center gap-2 mb-1.5">
+                                    <span style={{ ...mono, fontSize: 11, color: C.sub }}>D{i + 1}</span>
+                                    <span style={{ fontSize: 12, color: C.ink, fontWeight: 700 }}>{p ? `${p.dow} ${p.dd} ${p.mmm}` : "Sin fecha"}</span>
+                                  </div>
+                                  <input value={d.title || ""} onChange={(e) => patchDayById(editing.cityId, d.id, { title: e.target.value })} placeholder="Título del día (opcional)" style={{ ...inp, fontSize: 13, padding: "7px 10px" }} />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </Field>
+                      )}
+                    </>
+                  );
+                })()}
                 <button onClick={() => deleteCity(editing.cityId)} className="w-full flex items-center justify-center gap-2 rounded-xl py-3" style={{ color: C.red, border: `1px solid ${C.line}`, fontSize: 13, fontWeight: 600 }}><Trash2 size={15} /> Eliminar parada y sus días</button>
               </>
             )}
@@ -1022,7 +1136,14 @@ export default function App() {
               <>
                 <Field label="Fecha"><input type="date" value={day.date || ""} onChange={(e) => patchDayById(editing.cityId, editing.dayId, { date: e.target.value })} style={{ ...inp, ...mono }} /></Field>
                 <Field label="Título del día"><input value={day.title || ""} onChange={(e) => patchDayById(editing.cityId, editing.dayId, { title: e.target.value })} placeholder="P. ej. Llegada y centro histórico" style={inp} /></Field>
-                <button onClick={() => deleteDay(editing.cityId, editing.dayId)} className="w-full flex items-center justify-center gap-2 rounded-xl py-3 mt-1" style={{ color: C.red, border: `1px solid ${C.line}`, fontSize: 13, fontWeight: 600 }}><Trash2 size={15} /> Eliminar día</button>
+                {isNew ? (
+                  <div className="flex gap-2 mt-1">
+                    <button onClick={cancelEdit} className="flex-1 flex items-center justify-center rounded-xl py-3" style={{ color: C.sub, border: `1px solid ${C.line}`, fontSize: 13, fontWeight: 600 }}>Cancelar</button>
+                    <button onClick={saveEdit} className="flex-1 flex items-center justify-center gap-2 rounded-xl py-3" style={{ background: C.red, color: "#fff", fontSize: 13, fontWeight: 700 }}><Check size={16} /> Guardar día</button>
+                  </div>
+                ) : (
+                  <button onClick={() => deleteDay(editing.cityId, editing.dayId)} className="w-full flex items-center justify-center gap-2 rounded-xl py-3 mt-1" style={{ color: C.red, border: `1px solid ${C.line}`, fontSize: 13, fontWeight: 600 }}><Trash2 size={15} /> Eliminar día</button>
+                )}
               </>
             )}
           </div>
@@ -1047,10 +1168,12 @@ export default function App() {
 
   return (
     <div style={{ background: C.paper, minHeight: "100vh", maxWidth: 480, margin: "0 auto", fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif", color: C.ink }}>
-      <div style={{ paddingTop: 16 }}>{active.render()}</div>
-      <div style={{ position: "sticky", bottom: 0, background: "rgba(245,241,234,0.92)", backdropFilter: "blur(8px)", borderTop: `1px solid ${C.line}` }}>
-        <div className="flex">
-          {TABS.map((t) => <NavBtn key={t.id} active={tab === t.id} onClick={() => setTab(t.id)} icon={t.icon} label={t.label} />)}
+      <div style={{ paddingTop: 16, paddingBottom: 76 }}>{active.render()}</div>
+      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 40, display: "flex", justifyContent: "center", pointerEvents: "none" }}>
+        <div style={{ width: "100%", maxWidth: 480, background: "rgba(233,238,244,0.92)", backdropFilter: "blur(8px)", borderTop: `1px solid ${C.line}`, pointerEvents: "auto" }}>
+          <div className="flex">
+            {TABS.map((t) => <NavBtn key={t.id} active={tab === t.id} onClick={() => setTab(t.id)} icon={t.icon} label={t.label} />)}
+          </div>
         </div>
       </div>
       {renderModal()}
