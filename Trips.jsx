@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Plus, Trash2, Pencil, MapPin, LogOut, ChevronRight, Check, X } from "lucide-react";
 import { supabase } from "./supabase";
-import { listTrips, createTrip, renameTrip, deleteTrip } from "./trips";
+import { listTrips, createTrip, renameTrip, deleteTrip } from "./tripsApi";
 
 const C = { ink: "#26211C", sub: "#6F6358", paper: "#F5F1EA", card: "#FFFFFF", red: "#C0392B", redDeep: "#7E2A20", jade: "#2E7D6B", line: "#E5DCCF" };
 const Card = ({ children, style }) => (

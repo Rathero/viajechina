@@ -92,6 +92,6 @@ guardado en el navegador (`localStorage`). Útil para probar el diseño sin nube
 ├── Trips.jsx            # pantalla "Mis viajes"
 ├── supabase.js          # cliente Supabase
 ├── store.js             # capa de datos clave-valor (Supabase o local)
-├── trips.js             # CRUD de viajes (tabla trips)
+├── tripsApi.js          # CRUD de viajes (tabla trips)
 └── App.jsx              # el planificador de un viaje
 ```
