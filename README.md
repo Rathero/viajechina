@@ -26,8 +26,10 @@ App **multiusuario**: cada persona inicia sesión (Google o email+contraseña), 
 4. **Auth → Providers → Email**: ya está activo. (Opcional: desactiva "Confirm email" para que el
    registro entre directo sin confirmar por correo.)
 5. **Auth → Providers → Google**: pega el Client ID/Secret de un OAuth client de Google Cloud.
-6. Regístrate una vez en la app, edita `supabase.sql` (pon tu email donde indica) y pégalo en el
-   **SQL Editor → Run**. Eso crea las tablas `trips` + `kv` con RLS y conserva tu viaje "China".
+6. Pega `supabase.sql` en el **SQL Editor → Run**. Crea las tablas `trips` + `kv` con RLS.
+   Funciona en un proyecto nuevo y es idempotente (puedes reejecutarlo).
+   *(Opcional)* Si vienes de la versión antigua de un solo viaje y quieres conservar "China",
+   regístrate una vez en la app y pon tu email en la variable `target_email` del script.
 
 > Apple Sign-In está preparado en el código (flag `APPLE_ENABLED` en `Login.jsx`); requiere una
 > cuenta de Apple Developer de pago para activarlo.
@@ -63,10 +65,13 @@ renombrar, abrir y borrar sus viajes; cada viaje es **privado de su dueño** (RL
   actividades, reservas, gastos, maleta, checklists, ajustes) en `trip_<id>` y cada **adjunto** en
   `trip_<id>_att_<id>`. Ambas tablas con RLS: cada usuario solo accede a sus filas.
 
-## Modo local (sin Supabase)
+## Todo en la base de datos (sin localStorage)
 
-Si no defines las variables de entorno, la app se salta el login y abre un único viaje local
-guardado en el navegador (`localStorage`). Útil para probar el diseño sin nube.
+Toda la información (viajes, contenido y adjuntos) se guarda **exclusivamente en Supabase**.
+La app **no** usa `localStorage` para los datos. Por eso las variables de entorno son
+obligatorias: sin `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` la app no arranca y muestra
+un aviso para configurarlas. (Lo único que Supabase guarda en el navegador es el token de
+sesión para mantenerte logueado entre recargas.)
 
 ## Notas
 
