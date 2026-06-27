@@ -118,6 +118,10 @@ const EXP_CATS = ["Vuelos", "Alojamiento", "Transporte", "Comida", "Actividades"
 const EXP_COLORS = { Vuelos: "#3D5A98", Alojamiento: "#C0392B", Transporte: "#9A6A2F", Comida: "#E0883B", Actividades: "#2E7D6B", Compras: "#7E5BA6", Otros: "#8A8079" };
 const PACK_CATS = ["Documentos", "Ropa", "Electrónica", "Aseo y salud", "Otros"];
 const TYPE_TO_CAT = { comida: "Comida", traslado: "Transporte", logistica: "Otros", historia: "Actividades", cultura: "Actividades", naturaleza: "Actividades", tech: "Actividades" };
+/* Personas que comparten gastos: Fa (yo) y Rubén */
+const PAYERS = ["fa", "ruben"];
+const PAYER_LABEL = { fa: "Fa", ruben: "Rubén" };
+const PAYER_COLOR = { fa: "#C0392B", ruben: "#3D5A98" };
 
 /* ============ componentes estables ============ */
 const Card = ({ children, style }) => (
@@ -175,7 +179,7 @@ export default function App({ tripId, tripName, onBack }) {
   // formularios
   const [nc, setNc] = useState({ name: "", start: "", end: "", mode: "" });
   const [showAddCity, setShowAddCity] = useState(false);
-  const [ne, setNe] = useState({ cat: "Comida", desc: "", amount: "", cur: "EUR", date: todayISO() });
+  const [ne, setNe] = useState({ cat: "Comida", desc: "", amount: "", cur: "EUR", date: todayISO(), paidBy: "fa" });
   const [nb, setNb] = useState({ type: "Hotel", title: "", date: todayISO(), detail: "" });
   const [showAddB, setShowAddB] = useState(false);
   const [np, setNp] = useState({ cat: "Otros", item: "" });
@@ -200,13 +204,13 @@ export default function App({ tripId, tripName, onBack }) {
           const d = JSON.parse(r.value);
           if (typeof d.tripTitle === "string") setTripTitle(d.tripTitle);
           if (Array.isArray(d.itin)) {
-            const it = d.itin.map((c) => ({ into: null, color: PALETTE[0], days: [], ...c, days: (c.days || []).map((dd) => ({ title: "", items: [], ...dd, items: (dd.items || []).map((a) => ({ booked: false, notes: "", price: null, cur: "EUR", att: [], ...a })) })) }));
+            const it = d.itin.map((c) => ({ into: null, color: PALETTE[0], days: [], ...c, days: (c.days || []).map((dd) => ({ title: "", items: [], ...dd, items: (dd.items || []).map((a) => ({ booked: false, notes: "", price: null, cur: "EUR", att: [], tEnd: "", paidBy: "", ...a })) })) }));
             setItin(it);
             setOpenCity(Object.fromEntries(it.map((c) => [c.id, true])));
           }
           if (Array.isArray(d.bookings)) setBookings(d.bookings.map((b) => ({ ref: "", notes: "", att: [], status: "pendiente", ...b })));
           if (Array.isArray(d.packing)) setPacking(d.packing);
-          if (Array.isArray(d.expenses)) setExpenses(d.expenses);
+          if (Array.isArray(d.expenses)) setExpenses(d.expenses.map((e) => ({ paidBy: "fa", ...e })));
           if (d.docsChk) setDocsChk(d.docsChk);
           if (Array.isArray(d.tasks)) setTasks(d.tasks.map((t) => ({ notes: "", att: [], ...t })));
           if (Array.isArray(d.experiences)) setExperiences(d.experiences.map((t) => ({ notes: "", att: [], ...t })));
@@ -318,7 +322,7 @@ export default function App({ tripId, tripName, onBack }) {
   const addActivity = (cityId, dayId) => {
     if (!na.x.trim()) return;
     const id = dayId + "-a" + Math.random().toString(36).slice(2, 7);
-    setItin((prev) => prev.map((c) => c.id !== cityId ? c : { ...c, days: c.days.map((d) => d.id !== dayId ? d : { ...d, items: [...d.items, { id, t: na.t || "12:00", x: na.x.trim(), type: na.type, booked: false, notes: "", price: null, cur: "EUR", att: [] }] }) }));
+    setItin((prev) => prev.map((c) => c.id !== cityId ? c : { ...c, days: c.days.map((d) => d.id !== dayId ? d : { ...d, items: [...d.items, { id, t: na.t || "12:00", tEnd: "", x: na.x.trim(), type: na.type, booked: false, notes: "", price: null, cur: "EUR", paidBy: "", att: [] }] }) }));
     setNa({ t: "12:00", x: "", type: "cultura" });
     setAddActFor(null);
   };
@@ -418,7 +422,7 @@ export default function App({ tripId, tripName, onBack }) {
     const amt = parseFloat(String(ne.amount).replace(",", "."));
     if (!amt || amt <= 0) return;
     setExpenses((x) => [{ id: "e" + Date.now(), ...ne, amount: amt }, ...x]);
-    setNe({ cat: ne.cat, desc: "", amount: "", cur: ne.cur, date: ne.date });
+    setNe({ cat: ne.cat, desc: "", amount: "", cur: ne.cur, date: ne.date, paidBy: ne.paidBy });
   };
   const addPack = () => {
     if (!np.item.trim()) return;
@@ -477,6 +481,22 @@ export default function App({ tripId, tripName, onBack }) {
     try { await store.delete(STORAGE_KEY); } catch (e) {}
   };
 
+  /* selector de quién pagó (segmentado) */
+  const renderPayerPicker = (value, onChange, allowNone) => {
+    const choices = allowNone ? [["", "Sin pagar"], ["fa", "Fa"], ["ruben", "Rubén"]] : [["fa", "Fa"], ["ruben", "Rubén"]];
+    return (
+      <div className="flex gap-1.5">
+        {choices.map(([v, l]) => {
+          const on = value === v;
+          const col = v ? PAYER_COLOR[v] : C.sub;
+          return (
+            <button key={v || "none"} onClick={() => onChange(v)} className="flex-1 rounded-lg py-2" style={{ fontSize: 13, fontWeight: 700, border: `1.5px solid ${on ? col : C.line}`, background: on ? col + "1A" : C.card, color: on ? col : C.sub }}>{l}</button>
+          );
+        })}
+      </div>
+    );
+  };
+
   /* ---- derivados ---- */
   const eurOf = (amount, cur) => (cur === "CNY" ? (amount || 0) / (rate || 1) : (amount || 0));
   const allDays = itin.flatMap((c) => c.days);
@@ -484,13 +504,24 @@ export default function App({ tripId, tripName, onBack }) {
   const actsBooked = allActs.filter((a) => a.booked).length;
   const dates = allDays.filter((d) => d.date).map((d) => d.date).sort();
   const minDate = dates[0] || null, maxDate = dates[dates.length - 1] || null;
-  const routeExpenses = itin.flatMap((c) => c.days.flatMap((d) => d.items.filter((a) => a.price && a.price > 0).map((a) => ({ id: a.id, cityId: c.id, dayId: d.id, name: a.x || c.city, city: c.city, date: d.date, cat: TYPE_TO_CAT[a.type] || "Actividades", amount: a.price, cur: a.cur || "EUR" }))));
+  const routeExpenses = itin.flatMap((c) => c.days.flatMap((d) => d.items.filter((a) => a.price && a.price > 0).map((a) => ({ id: a.id, cityId: c.id, dayId: d.id, name: a.x || c.city, city: c.city, date: d.date, cat: TYPE_TO_CAT[a.type] || "Actividades", amount: a.price, cur: a.cur || "EUR", paidBy: a.paidBy || "" }))));
   const manualTotal = expenses.reduce((s, e) => s + eurOf(e.amount, e.cur), 0);
   const routeTotal = routeExpenses.reduce((s, e) => s + eurOf(e.amount, e.cur), 0);
   const totalSpent = manualTotal + routeTotal;
   const catTotals = {};
   [...expenses.map((e) => ({ cat: e.cat, v: eurOf(e.amount, e.cur) })), ...routeExpenses.map((e) => ({ cat: e.cat, v: eurOf(e.amount, e.cur) }))].forEach(({ cat, v }) => { catTotals[cat] = (catTotals[cat] || 0) + v; });
   const pieData = EXP_CATS.map((c) => ({ name: c, value: catTotals[c] || 0 })).filter((d) => d.value > 0);
+  /* balance entre Fa y Rubén: reparto 50/50 de todo lo que tenga pagador asignado */
+  const paidBy = { fa: 0, ruben: 0 };
+  let unassignedPaid = 0;
+  [...expenses.map((e) => ({ who: e.paidBy, v: eurOf(e.amount, e.cur) })), ...routeExpenses.map((e) => ({ who: e.paidBy, v: eurOf(e.amount, e.cur) }))].forEach(({ who, v }) => {
+    if (who === "fa" || who === "ruben") paidBy[who] += v; else unassignedPaid += v;
+  });
+  const sharedTotal = paidBy.fa + paidBy.ruben;
+  const balanceNet = (paidBy.fa - paidBy.ruben) / 2; // >0: Rubén debe a Fa; <0: Fa debe a Rubén
+  const balanceDebtor = balanceNet > 0 ? "ruben" : "fa";
+  const balanceCreditor = balanceNet > 0 ? "fa" : "ruben";
+  const balanceAmount = Math.abs(balanceNet);
   const bookConfirmed = bookings.filter((b) => b.status === "confirmado").length;
   const packDone = packing.filter((p) => p.done).length;
   const dateColor = {}, dateCityId = {};
@@ -724,15 +755,19 @@ export default function App({ tripId, tripName, onBack }) {
                                     <CheckBox on={a.booked} onClick={() => patchActById(s.id, d.id, a.id, { booked: !a.booked })} />
                                   </div>
                                   <button onClick={() => { setAttErr(""); setEditing({ kind: "act", cityId: s.id, dayId: d.id, actId: a.id }); }} className="flex-1 text-left flex items-start gap-2">
-                                    <span style={{ ...mono, fontSize: 12, color: a.t ? C.sub : C.line, width: 42, flexShrink: 0, marginTop: 1 }}>{a.t || "—"}</span>
+                                    <div style={{ ...mono, fontSize: 12, color: a.t ? C.sub : C.line, width: 48, flexShrink: 0, marginTop: 1, lineHeight: 1.2 }}>
+                                      <div>{a.t || "—"}</div>
+                                      {a.t && a.tEnd && <div style={{ fontSize: 10, color: C.sub, opacity: 0.65 }}>{a.tEnd}</div>}
+                                    </div>
                                     <div className="flex-1 min-w-0">
                                       <div>
                                         <span style={{ fontSize: 13.5, color: a.x ? C.ink : C.sub }}>{a.x || "(sin título)"}</span>
                                         <span className="ml-2 inline-block rounded px-1.5" style={{ fontSize: 9.5, fontWeight: 700, color: ty.c, background: ty.c + "1A", textTransform: "uppercase", letterSpacing: 0.4, verticalAlign: "middle" }}>{ty.l}</span>
                                       </div>
-                                      {(a.price > 0 || (a.att && a.att.length) || a.notes) && (
+                                      {(a.price > 0 || (a.att && a.att.length) || a.notes || a.paidBy) && (
                                         <div className="flex items-center gap-2.5 mt-1">
                                           {a.price > 0 && <span style={{ ...mono, fontSize: 11, color: C.redDeep, fontWeight: 700 }}>{a.cur === "CNY" ? `¥${a.price}` : eur(a.price)}</span>}
+                                          {a.paidBy && <span style={{ fontSize: 10.5, fontWeight: 700, color: PAYER_COLOR[a.paidBy] }}>{PAYER_LABEL[a.paidBy]}</span>}
                                           {a.att && a.att.length > 0 && <span className="flex items-center gap-0.5" style={{ fontSize: 11, color: C.sub }}><Paperclip size={11} />{a.att.length}</span>}
                                           {a.notes && <StickyNote size={12} color={C.sub} />}
                                         </div>
@@ -836,6 +871,35 @@ export default function App({ tripId, tripName, onBack }) {
         )}
       </Card>
 
+      <Card style={{ padding: 16, marginBottom: 14 }}>
+        <div className="flex items-center gap-2 mb-3" style={{ color: C.ink, fontWeight: 700, fontSize: 14 }}>
+          <Wallet size={16} style={{ color: C.red }} /> Balance Fa · Rubén
+        </div>
+        <div className="flex gap-3 mb-3">
+          {PAYERS.map((p) => (
+            <div key={p} className="flex-1 rounded-xl px-3 py-2.5" style={{ background: PAYER_COLOR[p] + "12", border: `1px solid ${PAYER_COLOR[p]}33` }}>
+              <div style={{ fontSize: 11, color: C.sub, fontWeight: 600 }}>{PAYER_LABEL[p]} ha pagado</div>
+              <div style={{ ...mono, fontSize: 17, fontWeight: 800, color: PAYER_COLOR[p] }}>{eur(paidBy[p])}</div>
+            </div>
+          ))}
+        </div>
+        <div className="rounded-xl px-4 py-3 text-center" style={{ background: C.ink, color: "#F5F1EA" }}>
+          {sharedTotal <= 0 ? (
+            <span style={{ fontSize: 13, color: "#C9BFB2" }}>Aún no hay gastos con pagador asignado.</span>
+          ) : balanceAmount < 0.005 ? (
+            <span style={{ fontSize: 14, fontWeight: 700 }}>Estáis en paz 🎉</span>
+          ) : (
+            <div>
+              <span style={{ fontSize: 13, color: "#C9BFB2" }}><b style={{ color: "#fff" }}>{PAYER_LABEL[balanceDebtor]}</b> debe a <b style={{ color: "#fff" }}>{PAYER_LABEL[balanceCreditor]}</b></span>
+              <div style={{ ...mono, fontSize: 26, fontWeight: 800, color: "#fff", lineHeight: 1.1 }}>{eur(balanceAmount)}</div>
+            </div>
+          )}
+        </div>
+        {unassignedPaid > 0.005 && (
+          <div style={{ fontSize: 11, color: C.sub, marginTop: 8, textAlign: "center" }}>{eur(unassignedPaid)} sin asignar a una persona (no cuentan en el balance).</div>
+        )}
+      </Card>
+
       <Card style={{ padding: 14, marginBottom: 14 }}>
         <div style={{ fontWeight: 700, color: C.ink, fontSize: 14, marginBottom: 10 }}>Añadir gasto manual</div>
         <div className="flex gap-2 mb-2">
@@ -845,6 +909,10 @@ export default function App({ tripId, tripName, onBack }) {
           <input type="date" value={ne.date} onChange={(e) => setNe({ ...ne, date: e.target.value })} style={{ ...inp, width: "auto", ...mono, fontSize: 12, padding: "8px 8px" }} />
         </div>
         <input value={ne.desc} onChange={(e) => setNe({ ...ne, desc: e.target.value })} placeholder="Descripción" style={{ ...inp, marginBottom: 8 }} />
+        <div className="mb-2">
+          <div style={{ fontSize: 11, color: C.sub, marginBottom: 4 }}>¿Quién paga?</div>
+          {renderPayerPicker(ne.paidBy, (v) => setNe({ ...ne, paidBy: v }), false)}
+        </div>
         <div className="flex gap-2">
           <input value={ne.amount} onChange={(e) => setNe({ ...ne, amount: e.target.value })} placeholder="0,00" inputMode="decimal" style={{ ...inp, flex: 1, ...mono }} />
           <select value={ne.cur} onChange={(e) => setNe({ ...ne, cur: e.target.value })} style={{ ...inp, width: "auto" }}>
@@ -861,7 +929,7 @@ export default function App({ tripId, tripName, onBack }) {
               <span style={{ width: 8, height: 8, borderRadius: 99, background: EXP_COLORS[e.cat], flexShrink: 0 }} />
               <div className="flex-1 min-w-0">
                 <div style={{ fontSize: 14, color: C.ink, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.desc || e.cat}</div>
-                <div style={{ fontSize: 11, color: C.sub }}>{e.cat} · {dparts(e.date).dd} {dparts(e.date).mmm}</div>
+                <div style={{ fontSize: 11, color: C.sub }}>{e.cat} · {dparts(e.date).dd} {dparts(e.date).mmm}{e.paidBy ? <> · <b style={{ color: PAYER_COLOR[e.paidBy] }}>{PAYER_LABEL[e.paidBy]}</b></> : ""}</div>
               </div>
               <div style={{ textAlign: "right" }}>
                 <div style={{ ...mono, fontSize: 14, fontWeight: 700, color: C.ink }}>{eur(eurOf(e.amount, e.cur))}</div>
@@ -885,7 +953,7 @@ export default function App({ tripId, tripName, onBack }) {
                 <span style={{ width: 8, height: 8, borderRadius: 99, background: EXP_COLORS[e.cat], flexShrink: 0 }} />
                 <div className="flex-1 min-w-0">
                   <div style={{ fontSize: 14, color: C.ink, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.name}</div>
-                  <div style={{ fontSize: 11, color: C.sub }}>{e.city}{e.date ? ` · ${dparts(e.date).dd} ${dparts(e.date).mmm}` : ""}</div>
+                  <div style={{ fontSize: 11, color: C.sub }}>{e.city}{e.date ? ` · ${dparts(e.date).dd} ${dparts(e.date).mmm}` : ""}{e.paidBy ? <> · <b style={{ color: PAYER_COLOR[e.paidBy] }}>{PAYER_LABEL[e.paidBy]}</b></> : ""}</div>
                 </div>
                 <div style={{ ...mono, fontSize: 14, fontWeight: 700, color: C.ink }}>{eur(eurOf(e.amount, e.cur))}</div>
                 <ChevronRight size={15} color={C.line} />
@@ -1190,13 +1258,15 @@ export default function App({ tripId, tripName, onBack }) {
           <div className="px-5 py-4">
             {k === "act" && (
               <>
-                <Field label="Hora">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <input type="time" value={act.t || ""} onChange={(e) => patchAct({ t: e.target.value })} disabled={!act.t} style={{ ...inp, ...mono, width: 150, opacity: act.t ? 1 : 0.45 }} />
-                    <div className="flex items-center gap-2">
-                      <CheckBox size={18} on={!act.t} onClick={() => patchAct({ t: act.t ? "" : "12:00" })} />
-                      <button onClick={() => patchAct({ t: act.t ? "" : "12:00" })} style={{ fontSize: 13, color: C.sub }}>Sin hora definida</button>
-                    </div>
+                <Field label="Hora" hint="Inicio y fin aproximado de la actividad.">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <input type="time" value={act.t || ""} onChange={(e) => patchAct({ t: e.target.value })} disabled={!act.t} style={{ ...inp, ...mono, width: 118, opacity: act.t ? 1 : 0.45 }} />
+                    <span style={{ color: C.sub, fontWeight: 700 }}>→</span>
+                    <input type="time" value={act.tEnd || ""} onChange={(e) => patchAct({ tEnd: e.target.value })} disabled={!act.t} style={{ ...inp, ...mono, width: 118, opacity: act.t ? 1 : 0.45 }} />
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <CheckBox size={18} on={!act.t} onClick={() => patchAct({ t: act.t ? "" : "12:00", tEnd: act.t ? "" : act.tEnd })} />
+                    <button onClick={() => patchAct({ t: act.t ? "" : "12:00", tEnd: act.t ? "" : act.tEnd })} style={{ fontSize: 13, color: C.sub }}>Sin hora definida</button>
                   </div>
                 </Field>
                 <Field label="Tipo"><select value={act.type} onChange={(e) => patchAct({ type: e.target.value })} style={inp}>{Object.keys(TYPE).map((key) => <option key={key} value={key}>{TYPE[key].l}</option>)}</select></Field>
@@ -1210,6 +1280,9 @@ export default function App({ tripId, tripName, onBack }) {
                 <button onClick={() => patchAct({ booked: !act.booked })} className="w-full flex items-center gap-3 rounded-xl px-4 py-3 mb-3" style={{ background: C.card, border: `1px solid ${act.booked ? C.jade + "66" : C.line}` }}>
                   <CheckBox on={act.booked} /><span style={{ fontSize: 14, fontWeight: 600, color: C.ink }}>Comprado / reservado</span>
                 </button>
+                <Field label="¿Quién la pagó?" hint="Se usa para el balance de gastos entre Fa y Rubén.">
+                  {renderPayerPicker(act.paidBy || "", (v) => patchAct({ paidBy: v }), true)}
+                </Field>
                 <Field label="Notas"><textarea value={act.notes} onChange={(e) => patchAct({ notes: e.target.value })} rows={3} placeholder="Entradas, horarios, direcciones, ideas…" style={{ ...inp, resize: "none" }} /></Field>
                 {renderAttachments(attList)}
                 <button onClick={() => setConfirmDel({ name: act.x || "esta actividad", where: "de la ruta", onConfirm: deleteActivity })} className="w-full flex items-center justify-center gap-2 rounded-xl py-3 mt-2" style={{ color: C.red, border: `1px solid ${C.line}`, fontSize: 13, fontWeight: 600 }}><Trash2 size={15} /> Eliminar actividad</button>
