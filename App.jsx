@@ -179,10 +179,13 @@ export default function App({ tripId, tripName, onBack }) {
   const [nb, setNb] = useState({ type: "Hotel", title: "", date: todayISO(), detail: "" });
   const [showAddB, setShowAddB] = useState(false);
   const [np, setNp] = useState({ cat: "Otros", item: "" });
+  const [na, setNa] = useState({ t: "12:00", x: "", type: "cultura" });
+  const [addActFor, setAddActFor] = useState(null);
   const [tasks, setTasks] = useState(DEFAULT_TASKS);
   const [experiences, setExperiences] = useState(DEFAULT_EXPERIENCES);
   const [ntask, setNtask] = useState("");
   const [nexp, setNexp] = useState("");
+  const [confirmDel, setConfirmDel] = useState(null);
   const saveT = useRef(null);
 
   /* cargar */
@@ -305,11 +308,16 @@ export default function App({ tripId, tripName, onBack }) {
   const patchActById = (cityId, dayId, actId, patch) =>
     setItin((prev) => prev.map((c) => c.id !== cityId ? c : { ...c, days: c.days.map((d) => d.id !== dayId ? d : { ...d, items: d.items.map((a) => a.id !== actId ? a : { ...a, ...patch }) }) }));
   const patchAct = (patch) => editing && patchActById(editing.cityId, editing.dayId, editing.actId, patch);
+  const openAddActivity = (dayId) => {
+    setAddActFor((cur) => (cur === dayId ? null : dayId));
+    setNa({ t: "12:00", x: "", type: "cultura" });
+  };
   const addActivity = (cityId, dayId) => {
+    if (!na.x.trim()) return;
     const id = dayId + "-a" + Math.random().toString(36).slice(2, 7);
-    setItin((prev) => prev.map((c) => c.id !== cityId ? c : { ...c, days: c.days.map((d) => d.id !== dayId ? d : { ...d, items: [...d.items, { id, t: "12:00", x: "", type: "cultura", booked: false, notes: "", price: null, cur: "EUR", att: [] }] }) }));
-    setAttErr("");
-    setEditing({ kind: "act", cityId, dayId, actId: id });
+    setItin((prev) => prev.map((c) => c.id !== cityId ? c : { ...c, days: c.days.map((d) => d.id !== dayId ? d : { ...d, items: [...d.items, { id, t: na.t || "12:00", x: na.x.trim(), type: na.type, booked: false, notes: "", price: null, cur: "EUR", att: [] }] }) }));
+    setNa({ t: "12:00", x: "", type: "cultura" });
+    setAddActFor(null);
   };
   const deleteActivity = () => {
     const a = curAct();
@@ -661,9 +669,25 @@ export default function App({ tripId, tripName, onBack }) {
                               </div>
                             );
                           })}
-                          <button onClick={() => addActivity(s.id, d.id)} className="flex items-center gap-1.5 mt-0.5 ml-0.5" style={{ color: C.red, fontSize: 12.5, fontWeight: 600 }}>
-                            <Plus size={14} /> Añadir actividad
-                          </button>
+                          {addActFor === d.id ? (
+                            <div className="rounded-xl mt-0.5" style={{ background: C.paper, border: `1px solid ${C.line}`, padding: 12 }}>
+                              <div className="flex gap-2 mb-2">
+                                <input value={na.t} onChange={(e) => setNa({ ...na, t: e.target.value })} placeholder="10:00" style={{ ...inp, width: 78, ...mono }} />
+                                <select value={na.type} onChange={(e) => setNa({ ...na, type: e.target.value })} style={{ ...inp, flex: 1 }}>
+                                  {Object.keys(TYPE).map((key) => <option key={key} value={key}>{TYPE[key].l}</option>)}
+                                </select>
+                              </div>
+                              <input value={na.x} onChange={(e) => setNa({ ...na, x: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") addActivity(s.id, d.id); }} placeholder="¿Qué vais a hacer?" style={{ ...inp, marginBottom: 8 }} autoFocus />
+                              <div className="flex gap-2">
+                                <button onClick={() => { setAddActFor(null); setNa({ t: "12:00", x: "", type: "cultura" }); }} className="flex-1 rounded-lg py-2" style={{ border: `1px solid ${C.line}`, background: C.card, color: C.sub, fontSize: 13, fontWeight: 600 }}>Cancelar</button>
+                                <button onClick={() => addActivity(s.id, d.id)} disabled={!na.x.trim()} className="flex-1 rounded-lg py-2" style={{ background: C.red, color: "#fff", fontSize: 13, fontWeight: 700, opacity: na.x.trim() ? 1 : 0.5 }}>Guardar</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button onClick={() => openAddActivity(d.id)} className="flex items-center gap-1.5 mt-0.5 ml-0.5" style={{ color: C.red, fontSize: 12.5, fontWeight: 600 }}>
+                              <Plus size={14} /> Añadir actividad
+                            </button>
+                          )}
                         </div>
                       </div>
                     );
@@ -761,7 +785,7 @@ export default function App({ tripId, tripName, onBack }) {
                 <div style={{ ...mono, fontSize: 14, fontWeight: 700, color: C.ink }}>{eur(eurOf(e.amount, e.cur))}</div>
                 {e.cur === "CNY" && <div style={{ ...mono, fontSize: 10, color: C.sub }}>¥{e.amount}</div>}
               </div>
-              <button onClick={() => setExpenses((x) => x.filter((y) => y.id !== e.id))}><Trash2 size={16} color={C.sub} /></button>
+              <button onClick={() => setConfirmDel({ name: e.desc || e.cat, where: "de los gastos", onConfirm: () => setExpenses((x) => x.filter((y) => y.id !== e.id)) })}><Trash2 size={16} color={C.sub} /></button>
             </div>
           ))}
         </div>
@@ -902,7 +926,7 @@ export default function App({ tripId, tripName, onBack }) {
                 <div key={p.id} className="flex items-center gap-3 px-4 py-3" style={{ borderTop: i ? `1px solid ${C.line}` : "none" }}>
                   <CheckBox on={p.done} onClick={() => setPacking((x) => x.map((y) => y.id === p.id ? { ...y, done: !y.done } : y))} />
                   <span className="flex-1" style={{ fontSize: 14, color: p.done ? C.sub : C.ink, textDecoration: p.done ? "line-through" : "none" }}>{p.item}</span>
-                  <button onClick={() => setPacking((x) => x.filter((y) => y.id !== p.id))}><Trash2 size={15} color={C.sub} /></button>
+                  <button onClick={() => setConfirmDel({ name: p.item, where: "de la maleta", onConfirm: () => setPacking((x) => x.filter((y) => y.id !== p.id)) })}><Trash2 size={15} color={C.sub} /></button>
                 </div>
               ))}
             </Card>
@@ -995,7 +1019,7 @@ export default function App({ tripId, tripName, onBack }) {
                   )}
                 </button>
                 <ChevronRight size={16} color={C.line} style={{ flexShrink: 0 }} />
-                <button onClick={() => { (it.att || []).forEach(purgeAtt); setItems((x) => x.filter((y) => y.id !== it.id)); }}><Trash2 size={15} color={C.sub} /></button>
+                <button onClick={() => setConfirmDel({ name: it.text, where: "de la checklist", onConfirm: () => { (it.att || []).forEach(purgeAtt); setItems((x) => x.filter((y) => y.id !== it.id)); } })}><Trash2 size={15} color={C.sub} /></button>
               </div>
             ))}
           </Card>
@@ -1100,7 +1124,7 @@ export default function App({ tripId, tripName, onBack }) {
                 </button>
                 <Field label="Notas"><textarea value={act.notes} onChange={(e) => patchAct({ notes: e.target.value })} rows={3} placeholder="Entradas, horarios, direcciones, ideas…" style={{ ...inp, resize: "none" }} /></Field>
                 {renderAttachments(attList)}
-                <button onClick={deleteActivity} className="w-full flex items-center justify-center gap-2 rounded-xl py-3 mt-2" style={{ color: C.red, border: `1px solid ${C.line}`, fontSize: 13, fontWeight: 600 }}><Trash2 size={15} /> Eliminar actividad</button>
+                <button onClick={() => setConfirmDel({ name: act.x || "esta actividad", where: "de la ruta", onConfirm: deleteActivity })} className="w-full flex items-center justify-center gap-2 rounded-xl py-3 mt-2" style={{ color: C.red, border: `1px solid ${C.line}`, fontSize: 13, fontWeight: 600 }}><Trash2 size={15} /> Eliminar actividad</button>
               </>
             )}
 
@@ -1118,7 +1142,7 @@ export default function App({ tripId, tripName, onBack }) {
                 <Field label="Localizador / referencia"><input value={bk.ref || ""} onChange={(e) => patchBk({ ref: e.target.value })} placeholder="Código de reserva" style={{ ...inp, ...mono }} /></Field>
                 <Field label="Notas"><textarea value={bk.notes || ""} onChange={(e) => patchBk({ notes: e.target.value })} rows={3} placeholder="Detalles de la reserva…" style={{ ...inp, resize: "none" }} /></Field>
                 {renderAttachments(attList)}
-                <button onClick={deleteBooking} className="w-full flex items-center justify-center gap-2 rounded-xl py-3 mt-2" style={{ color: C.red, border: `1px solid ${C.line}`, fontSize: 13, fontWeight: 600 }}><Trash2 size={15} /> Eliminar reserva</button>
+                <button onClick={() => setConfirmDel({ name: bk.title || "esta reserva", where: "de las reservas", onConfirm: deleteBooking })} className="w-full flex items-center justify-center gap-2 rounded-xl py-3 mt-2" style={{ color: C.red, border: `1px solid ${C.line}`, fontSize: 13, fontWeight: 600 }}><Trash2 size={15} /> Eliminar reserva</button>
               </>
             )}
 
@@ -1139,7 +1163,7 @@ export default function App({ tripId, tripName, onBack }) {
                   </div>
                 </Field>
                 <div style={{ fontSize: 12, color: C.sub, marginBottom: 12 }}>Los días y actividades de esta parada se gestionan en la pantalla de Ruta.</div>
-                <button onClick={() => deleteCity(editing.cityId)} className="w-full flex items-center justify-center gap-2 rounded-xl py-3" style={{ color: C.red, border: `1px solid ${C.line}`, fontSize: 13, fontWeight: 600 }}><Trash2 size={15} /> Eliminar parada y sus días</button>
+                <button onClick={() => setConfirmDel({ name: city.city || "esta parada", where: "y todos sus días de la ruta", onConfirm: () => deleteCity(editing.cityId) })} className="w-full flex items-center justify-center gap-2 rounded-xl py-3" style={{ color: C.red, border: `1px solid ${C.line}`, fontSize: 13, fontWeight: 600 }}><Trash2 size={15} /> Eliminar parada y sus días</button>
               </>
             )}
 
@@ -1147,7 +1171,7 @@ export default function App({ tripId, tripName, onBack }) {
               <>
                 <Field label="Fecha"><input type="date" value={day.date || ""} onChange={(e) => patchDayById(editing.cityId, editing.dayId, { date: e.target.value })} style={{ ...inp, ...mono }} /></Field>
                 <Field label="Título del día"><input value={day.title || ""} onChange={(e) => patchDayById(editing.cityId, editing.dayId, { title: e.target.value })} placeholder="P. ej. Llegada y centro histórico" style={inp} /></Field>
-                <button onClick={() => deleteDay(editing.cityId, editing.dayId)} className="w-full flex items-center justify-center gap-2 rounded-xl py-3 mt-1" style={{ color: C.red, border: `1px solid ${C.line}`, fontSize: 13, fontWeight: 600 }}><Trash2 size={15} /> Eliminar día</button>
+                <button onClick={() => setConfirmDel({ name: day.title || (day.date ? `el día ${dparts(day.date).dd} ${dparts(day.date).mmm}` : "este día"), where: "de la ruta", onConfirm: () => deleteDay(editing.cityId, editing.dayId) })} className="w-full flex items-center justify-center gap-2 rounded-xl py-3 mt-1" style={{ color: C.red, border: `1px solid ${C.line}`, fontSize: 13, fontWeight: 600 }}><Trash2 size={15} /> Eliminar día</button>
               </>
             )}
 
@@ -1161,7 +1185,7 @@ export default function App({ tripId, tripName, onBack }) {
                 </button>
                 <Field label="Notas"><textarea value={chk.notes || ""} onChange={(e) => patchCheck({ notes: e.target.value })} rows={3} placeholder="Detalles, enlaces, recordatorios…" style={{ ...inp, resize: "none" }} /></Field>
                 {renderAttachments(attList)}
-                <button onClick={deleteCheck} className="w-full flex items-center justify-center gap-2 rounded-xl py-3 mt-2" style={{ color: C.red, border: `1px solid ${C.line}`, fontSize: 13, fontWeight: 600 }}><Trash2 size={15} /> Eliminar</button>
+                <button onClick={() => setConfirmDel({ name: chk.text || "este elemento", where: editing.listType === "tasks" ? "de la checklist" : "de las experiencias", onConfirm: deleteCheck })} className="w-full flex items-center justify-center gap-2 rounded-xl py-3 mt-2" style={{ color: C.red, border: `1px solid ${C.line}`, fontSize: 13, fontWeight: 600 }}><Trash2 size={15} /> Eliminar</button>
               </>
             )}
           </div>
@@ -1204,6 +1228,20 @@ export default function App({ tripId, tripName, onBack }) {
       {lightbox && (
         <div onClick={() => setLightbox(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <img src={lightbox} alt="" style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: 8 }} />
+        </div>
+      )}
+      {confirmDel && (
+        <div onClick={() => setConfirmDel(null)} style={{ position: "fixed", inset: 0, background: "rgba(20,16,12,0.55)", zIndex: 70, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: C.paper, width: "100%", maxWidth: 360, borderRadius: 16, padding: 20, border: `1px solid ${C.line}` }}>
+            <div className="flex items-center gap-2 mb-2" style={{ color: C.red, fontWeight: 800, fontSize: 16 }}><Trash2 size={18} /> Eliminar</div>
+            <div style={{ fontSize: 14, color: C.sub, lineHeight: 1.5, marginBottom: 20 }}>
+              ¿Seguro que quieres eliminar <b style={{ color: C.ink }}>{confirmDel.name}</b>{confirmDel.where ? ` ${confirmDel.where}` : ""}?
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setConfirmDel(null)} className="flex-1 rounded-lg py-2.5" style={{ border: `1px solid ${C.line}`, background: C.card, color: C.sub, fontSize: 14, fontWeight: 600 }}>Cancelar</button>
+              <button onClick={() => { const fn = confirmDel.onConfirm; setConfirmDel(null); fn && fn(); }} className="flex-1 rounded-lg py-2.5" style={{ background: C.red, color: "#fff", fontSize: 14, fontWeight: 700 }}>Eliminar</button>
+            </div>
+          </div>
         </div>
       )}
     </div>
