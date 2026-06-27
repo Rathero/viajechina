@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   Plane, Train, Calendar, Wallet, Luggage, FileText, MapPin, Check, Plus,
-  Trash2, ChevronDown, ChevronRight, Building2, Sparkles, AlertCircle,
+  Trash2, ChevronDown, ChevronRight, ChevronLeft, Building2, Sparkles, AlertCircle,
   CreditCard, Wifi, Globe, RotateCcw, Paperclip, Download, StickyNote, X,
   Pencil, Bus, Car, Ship, ListChecks, ClipboardList,
 } from "lucide-react";
@@ -64,8 +64,7 @@ const fileToDataURL = (f) => new Promise((res, rej) => {
   r.readAsDataURL(f);
 });
 
-const STORAGE_KEY = "viaje_china_v3";
-const ATT_PREFIX = "viaje_china_v3_att_";
+// Las claves de almacenamiento se derivan del viaje (ver dentro de App).
 const mono = { fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" };
 const inp = { width: "100%", background: C.card, border: `1px solid ${C.line}`, borderRadius: 10, padding: "10px 12px", fontSize: 14, color: C.ink, outline: "none" };
 
@@ -154,9 +153,11 @@ const Empty = ({ icon: Ic, title, text }) => (
 );
 
 /* ============ app ============ */
-export default function App() {
+export default function App({ tripId, tripName, onBack }) {
+  const STORAGE_KEY = `trip_${tripId}`;
+  const ATT_PREFIX = `trip_${tripId}_att_`;
   const [tab, setTab] = useState("resumen");
-  const [tripTitle, setTripTitle] = useState("China");
+  const [tripTitle, setTripTitle] = useState(tripName || "Mi viaje");
   const [itin, setItin] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [packing, setPacking] = useState(DEFAULT_PACKING);
@@ -1134,7 +1135,14 @@ export default function App() {
 
   return (
     <div style={{ background: C.paper, minHeight: "100vh", maxWidth: 480, margin: "0 auto", fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif", color: C.ink }}>
-      <div style={{ paddingTop: 16 }}>{active.render()}</div>
+      {onBack && (
+        <div style={{ padding: "12px 16px 0" }}>
+          <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4, color: C.sub, fontSize: 13, fontWeight: 600 }}>
+            <ChevronLeft size={18} /> Mis viajes
+          </button>
+        </div>
+      )}
+      <div style={{ paddingTop: onBack ? 8 : 16 }}>{active.render()}</div>
       <div style={{ position: "sticky", bottom: 0, background: "rgba(245,241,234,0.92)", backdropFilter: "blur(8px)", borderTop: `1px solid ${C.line}` }}>
         <div style={{ display: "flex", flexWrap: "nowrap" }}>
           {TABS.map((t) => <NavBtn key={t.id} active={tab === t.id} onClick={() => setTab(t.id)} icon={t.icon} label={t.label} />)}

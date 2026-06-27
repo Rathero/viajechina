@@ -4,24 +4,33 @@ App de planificación de viaje (React + Vite). Sin servidor propio: los datos se
 **Supabase** (Postgres gestionado) y se publica en **Vercel**.
 
 ```
-  Navegador (React en Vercel)  ──>  Supabase (Postgres)
-        store.js                     tabla kv (JSONB), pública
+  Navegador (React en Vercel)  ──>  Supabase (Auth + Postgres)
+        Root → Login → Trips → App      tablas trips + kv (JSONB), RLS por usuario
 ```
 
-No hay backend ni login que mantener. La app es **pública**: un único viaje compartido que se
-ve y se edita desde cualquier dispositivo con la URL. El frontend habla con Supabase directamente.
+App **multiusuario**: cada persona inicia sesión (Google o email+contraseña), ve sus viajes en
+"Mis viajes" y al abrir uno entra al planificador. Cada usuario solo ve y edita **sus** datos
+(RLS de Supabase). El frontend habla con Supabase directamente; no hay backend propio.
 
 ---
 
 ## 1. Crear el proyecto en Supabase (gratis)
 
 1. Entra en https://supabase.com y crea un proyecto nuevo.
-2. Ve a **SQL Editor**, pega el contenido de `supabase.sql` y pulsa **Run**.
-3. Ve a **Project Settings → API** y copia:
+2. Ve a **Project Settings → API** y copia:
    - **Project URL** → `VITE_SUPABASE_URL`
    - **anon public key** → `VITE_SUPABASE_ANON_KEY`
+3. **Auth → URL Configuration**: pon *Site URL* = tu URL de producción (Vercel) y añade en
+   *Redirect URLs* esa misma URL y `http://localhost:5173` (lo usan Google y los enlaces de
+   recuperación de contraseña).
+4. **Auth → Providers → Email**: ya está activo. (Opcional: desactiva "Confirm email" para que el
+   registro entre directo sin confirmar por correo.)
+5. **Auth → Providers → Google**: pega el Client ID/Secret de un OAuth client de Google Cloud.
+6. Regístrate una vez en la app, edita `supabase.sql` (pon tu email donde indica) y pégalo en el
+   **SQL Editor → Run**. Eso crea las tablas `trips` + `kv` con RLS y conserva tu viaje "China".
 
-> No hace falta configurar login ni *Redirect URLs*: la app es pública y no usa autenticación.
+> Apple Sign-In está preparado en el código (flag `APPLE_ENABLED` en `Login.jsx`); requiere una
+> cuenta de Apple Developer de pago para activarlo.
 
 ## 2. Probar en local
 
@@ -41,31 +50,29 @@ npm run dev                     # http://localhost:5173
    - `VITE_SUPABASE_ANON_KEY`
 4. **Deploy**. Listo.
 
-## Compartir el viaje
+## Cuentas y viajes
 
-Es un único viaje **público compartido**: cualquiera con la URL ve y edita los mismos datos,
-desde el móvil o el ordenador, sin cuentas ni contraseñas.
+Cada usuario inicia sesión con **Google** o **email + contraseña**. En "Mis viajes" puede crear,
+renombrar, abrir y borrar sus viajes; cada viaje es **privado de su dueño** (RLS de Supabase).
+(Compartir un viaje entre varias personas queda como mejora futura.)
 
 ## Cómo se guardan los datos
 
-La app guarda su estado a través de una interfaz clave-valor (`store.js`), que sobre Supabase
-usa una tabla `kv (key, data JSONB)`:
-
-- El **viaje completo** (ruta, días, actividades, reservas, gastos, maleta, ajustes) va en una clave.
-- Cada **adjunto** va en su propia clave.
-
-JSONB permite además inspeccionar/consultar el contenido en Supabase si lo necesitas.
+- Tabla **`trips`**: metadatos de cada viaje (id, dueño, nombre, fechas).
+- Tabla **`kv`**: el contenido, con claves por viaje — el **viaje completo** (ruta, días,
+  actividades, reservas, gastos, maleta, checklists, ajustes) en `trip_<id>` y cada **adjunto** en
+  `trip_<id>_att_<id>`. Ambas tablas con RLS: cada usuario solo accede a sus filas.
 
 ## Modo local (sin Supabase)
 
-Si no defines las variables de entorno, la app funciona igual pero guarda en el navegador
-(`localStorage`). Útil para probar el diseño sin nube. No hay login en este modo.
+Si no defines las variables de entorno, la app se salta el login y abre un único viaje local
+guardado en el navegador (`localStorage`). Útil para probar el diseño sin nube.
 
 ## Notas
 
 - **Adjuntos**: ahora se guardan como dataURL dentro de la BD. Para mucho volumen, súbelos a
-  **Supabase Storage** y guarda solo la ruta. (Cambio acotado en `src/store.js`.)
-- **¿Firebase en lugar de Supabase?** El mismo `src/store.js` se puede reescribir contra Firestore
+  **Supabase Storage** y guarda solo la ruta. (Cambio acotado en `store.js`.)
+- **¿Firebase en lugar de Supabase?** El mismo `store.js` se puede reescribir contra Firestore
   (un documento por clave). El resto de la app no cambia. Supabase encaja mejor si quieres SQL.
 - **Tailwind**: se carga por CDN en `index.html` para cero configuración. Se puede pasar a Tailwind
   compilado cuando quieras.
@@ -78,10 +85,13 @@ Si no defines las variables de entorno, la app funciona igual pero guarda en el 
 ├── package.json
 ├── vite.config.js
 ├── .env.example
-├── supabase.sql          # tabla kv pública (pegar en Supabase)
+├── supabase.sql          # tablas trips + kv con RLS (pegar en Supabase)
 ├── main.jsx              # arranque
-├── Root.jsx             # monta la app (sin login)
+├── Root.jsx             # orquesta login / mis viajes / app
+├── Login.jsx            # acceso (Google, email+contraseña)
+├── Trips.jsx            # pantalla "Mis viajes"
 ├── supabase.js          # cliente Supabase
-├── store.js             # capa de datos (Supabase o local)
-└── App.jsx              # la app
+├── store.js             # capa de datos clave-valor (Supabase o local)
+├── trips.js             # CRUD de viajes (tabla trips)
+└── App.jsx              # el planificador de un viaje
 ```
