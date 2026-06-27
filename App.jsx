@@ -3,7 +3,7 @@ import {
   Plane, Train, Calendar, Wallet, Luggage, FileText, MapPin, Check, Plus,
   Trash2, ChevronDown, ChevronRight, Building2, Sparkles, AlertCircle,
   CreditCard, Wifi, Globe, RotateCcw, Paperclip, Download, StickyNote, X,
-  Pencil, Bus, Car, Ship,
+  Pencil, Bus, Car, Ship, ListChecks, ClipboardList,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { store } from "./store";
@@ -80,6 +80,23 @@ const DEFAULT_PACKING = [
   ["Otros", ["Mochila de día", "Botella reutilizable", "Algo de efectivo en CNY"]],
 ].flatMap(([cat, items], ci) => items.map((it, i) => ({ id: `k${ci}-${i}`, cat, item: it, done: false })));
 
+/* checklist: gestiones (organización) y experiencias (qué quiero vivir) — plantilla editable */
+const DEFAULT_TASKS = [
+  "Comprar el seguro de viaje",
+  "Comprar la tarjeta SIM / eSIM",
+  "Pedir dinero en efectivo (CNY)",
+  "Vincular tarjeta a Alipay / WeChat Pay",
+  "Configurar la VPN antes de salir",
+  "Descargar mapas y traductor offline",
+].map((t, i) => ({ id: `t${i}`, text: t, done: false }));
+
+const DEFAULT_EXPERIENCES = [
+  "Probar un coche totalmente autónomo (robotaxi)",
+  "Subir al tren maglev de Shanghái",
+  "Cenar en un mercado nocturno local",
+  "Ver un espectáculo de la Ópera de Pekín",
+].map((t, i) => ({ id: `x${i}`, text: t, done: false }));
+
 const DOCS = [
   { id: "doc1", label: "Pasaporte con validez mínima de 6 meses y 2 páginas libres" },
   { id: "doc2", label: "Sin visado: estancias de hasta 30 días para españoles, vigente hasta 31/12/2026" },
@@ -121,9 +138,9 @@ const Field = ({ label, hint, children }) => (
   </div>
 );
 const NavBtn = ({ active, onClick, icon: Ic, label }) => (
-  <button onClick={onClick} className="flex flex-col items-center justify-center gap-1 flex-1 py-2" style={{ color: active ? C.red : C.sub }}>
-    <Ic size={20} strokeWidth={active ? 2.4 : 1.8} />
-    <span style={{ fontSize: 11, fontWeight: active ? 700 : 500 }}>{label}</span>
+  <button onClick={onClick} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, flex: "1 1 0%", minWidth: 0, padding: "8px 2px", color: active ? C.red : C.sub }}>
+    <Ic size={19} strokeWidth={active ? 2.4 : 1.8} />
+    <span style={{ fontSize: 10, fontWeight: active ? 700 : 500, whiteSpace: "nowrap" }}>{label}</span>
   </button>
 );
 const Empty = ({ icon: Ic, title, text }) => (
@@ -161,6 +178,10 @@ export default function App() {
   const [nb, setNb] = useState({ type: "Hotel", title: "", date: todayISO(), detail: "" });
   const [showAddB, setShowAddB] = useState(false);
   const [np, setNp] = useState({ cat: "Otros", item: "" });
+  const [tasks, setTasks] = useState(DEFAULT_TASKS);
+  const [experiences, setExperiences] = useState(DEFAULT_EXPERIENCES);
+  const [ntask, setNtask] = useState("");
+  const [nexp, setNexp] = useState("");
   const saveT = useRef(null);
 
   /* cargar */
@@ -180,6 +201,8 @@ export default function App() {
           if (Array.isArray(d.packing)) setPacking(d.packing);
           if (Array.isArray(d.expenses)) setExpenses(d.expenses);
           if (d.docsChk) setDocsChk(d.docsChk);
+          if (Array.isArray(d.tasks)) setTasks(d.tasks);
+          if (Array.isArray(d.experiences)) setExperiences(d.experiences);
           if (typeof d.rate === "number") setRate(d.rate);
           if (typeof d.budget === "number") setBudget(d.budget);
         }
@@ -203,9 +226,9 @@ export default function App() {
     if (!hydrated) return;
     if (saveT.current) clearTimeout(saveT.current);
     saveT.current = setTimeout(async () => {
-      try { await store.set(STORAGE_KEY, JSON.stringify({ tripTitle, itin, bookings, packing, expenses, docsChk, rate, budget })); } catch (e) {}
+      try { await store.set(STORAGE_KEY, JSON.stringify({ tripTitle, itin, bookings, packing, expenses, docsChk, rate, budget, tasks, experiences })); } catch (e) {}
     }, 400);
-  }, [tripTitle, itin, bookings, packing, expenses, docsChk, rate, budget, hydrated]);
+  }, [tripTitle, itin, bookings, packing, expenses, docsChk, rate, budget, tasks, experiences, hydrated]);
 
   /* ---- adjuntos ---- */
   const purgeAtt = (attId) => {
@@ -320,6 +343,16 @@ export default function App() {
     setPacking((x) => [...x, { id: "k" + Date.now(), cat: np.cat, item: np.item, done: false }]);
     setNp({ cat: np.cat, item: "" });
   };
+  const addTask = () => {
+    if (!ntask.trim()) return;
+    setTasks((x) => [...x, { id: "t" + Date.now(), text: ntask.trim(), done: false }]);
+    setNtask("");
+  };
+  const addExp = () => {
+    if (!nexp.trim()) return;
+    setExperiences((x) => [...x, { id: "x" + Date.now(), text: nexp.trim(), done: false }]);
+    setNexp("");
+  };
 
   /* ---- lookups modal ---- */
   const curAct = () => {
@@ -344,7 +377,8 @@ export default function App() {
   const resetAll = async () => {
     Object.keys(attMap).forEach((id) => { try { store.delete(ATT_PREFIX + id); } catch (e) {} });
     setItin([]); setBookings([]); setOpenCity({}); setPacking(DEFAULT_PACKING);
-    setExpenses([]); setDocsChk({}); setRate(7.7); setBudget(0); setAttMap({}); setTripTitle("China"); setConfirmReset(false);
+    setExpenses([]); setDocsChk({}); setRate(7.7); setBudget(0); setAttMap({}); setTripTitle("China");
+    setTasks(DEFAULT_TASKS); setExperiences(DEFAULT_EXPERIENCES); setConfirmReset(false);
     try { await store.delete(STORAGE_KEY); } catch (e) {}
   };
 
@@ -897,6 +931,58 @@ export default function App() {
     </div>
   );
 
+  /* ============ checklist ============ */
+  const renderCheckGroup = ({ icon: Ic, title, subtitle, accent, items, setItems, draft, setDraft, add, placeholder }) => {
+    const done = items.filter((i) => i.done).length;
+    return (
+      <div className="mb-6">
+        <div className="flex items-center gap-2 px-1">
+          <div className="flex items-center justify-center rounded-lg" style={{ background: `${accent}1A`, width: 32, height: 32, flexShrink: 0 }}>
+            <Ic size={18} color={accent} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div style={{ fontWeight: 800, color: C.ink, fontSize: 15 }}>{title}</div>
+            <div style={{ color: C.sub, fontSize: 12 }}>{subtitle}</div>
+          </div>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: accent }}>{done}/{items.length}</div>
+        </div>
+        <div style={{ height: 6, borderRadius: 99, background: C.line, overflow: "hidden", margin: "10px 4px 12px" }}>
+          <div style={{ height: "100%", width: `${items.length ? (done / items.length) * 100 : 0}%`, background: accent }} />
+        </div>
+        <Card style={{ padding: 12, marginBottom: 12 }}>
+          <div className="flex gap-2">
+            <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") add(); }} placeholder={placeholder} style={{ ...inp, flex: 1 }} />
+            <button onClick={add} className="rounded-lg px-4" style={{ background: accent, color: "#fff" }}><Plus size={20} /></button>
+          </div>
+        </Card>
+        {items.length === 0 ? (
+          <Empty icon={Ic} title="Lista vacía" text="Añade lo que necesites en el campo de arriba." />
+        ) : (
+          <Card style={{ overflow: "hidden" }}>
+            {items.map((it, i) => (
+              <div key={it.id} className="flex items-center gap-3 px-4 py-3" style={{ borderTop: i ? `1px solid ${C.line}` : "none" }}>
+                <CheckBox on={it.done} color={accent} onClick={() => setItems((x) => x.map((y) => y.id === it.id ? { ...y, done: !y.done } : y))} />
+                <span className="flex-1" style={{ fontSize: 14, color: it.done ? C.sub : C.ink, textDecoration: it.done ? "line-through" : "none" }}>{it.text}</span>
+                <button onClick={() => setItems((x) => x.filter((y) => y.id !== it.id))}><Trash2 size={15} color={C.sub} /></button>
+              </div>
+            ))}
+          </Card>
+        )}
+      </div>
+    );
+  };
+
+  const renderChecklist = () => (
+    <div className="px-5 pb-6">
+      <div className="pt-1 pb-3">
+        <div style={{ fontSize: 22, fontWeight: 800, color: C.ink }}>Checklist</div>
+        <div style={{ color: C.sub, fontSize: 13 }}>Gestiones por resolver y experiencias que quieres vivir.</div>
+      </div>
+      {renderCheckGroup({ icon: ClipboardList, title: "Gestiones", subtitle: "Cosas que organizar antes y durante el viaje", accent: C.red, items: tasks, setItems: setTasks, draft: ntask, setDraft: setNtask, add: addTask, placeholder: "Ej. Comprar el seguro de viaje" })}
+      {renderCheckGroup({ icon: Sparkles, title: "Experiencias", subtitle: "Momentos que no te quieres perder", accent: C.jade, items: experiences, setItems: setExperiences, draft: nexp, setDraft: setNexp, add: addExp, placeholder: "Ej. Probar un coche autónomo" })}
+    </div>
+  );
+
   /* ============ adjuntos (compartido) ============ */
   const renderAttachments = (attList) => (
     <Field label="Notas y archivos adjuntos">
@@ -1041,6 +1127,7 @@ export default function App() {
     { id: "presupuesto", icon: Wallet, label: "Gastos", render: renderGastos },
     { id: "reservas", icon: FileText, label: "Reservas", render: renderReservas },
     { id: "equipaje", icon: Luggage, label: "Maleta", render: renderMaleta },
+    { id: "checklist", icon: ListChecks, label: "Listas", render: renderChecklist },
     { id: "docs", icon: AlertCircle, label: "Info", render: renderInfo },
   ];
   const active = TABS.find((t) => t.id === tab);
@@ -1049,7 +1136,7 @@ export default function App() {
     <div style={{ background: C.paper, minHeight: "100vh", maxWidth: 480, margin: "0 auto", fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif", color: C.ink }}>
       <div style={{ paddingTop: 16 }}>{active.render()}</div>
       <div style={{ position: "sticky", bottom: 0, background: "rgba(245,241,234,0.92)", backdropFilter: "blur(8px)", borderTop: `1px solid ${C.line}` }}>
-        <div className="flex">
+        <div style={{ display: "flex", flexWrap: "nowrap" }}>
           {TABS.map((t) => <NavBtn key={t.id} active={tab === t.id} onClick={() => setTab(t.id)} icon={t.icon} label={t.label} />)}
         </div>
       </div>
