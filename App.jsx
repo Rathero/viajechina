@@ -3,7 +3,7 @@ import {
   Plane, Train, Calendar, Wallet, Luggage, FileText, MapPin, Check, Plus,
   Trash2, ChevronDown, ChevronRight, ChevronLeft, Building2, Sparkles, AlertCircle,
   CreditCard, Wifi, Globe, RotateCcw, Paperclip, Download, StickyNote, X,
-  Pencil, Bus, Car, Ship, ListChecks, ClipboardList,
+  Pencil, Bus, Car, Ship, ListChecks, ClipboardList, Image as ImageIcon,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { store } from "./store";
@@ -87,14 +87,14 @@ const DEFAULT_TASKS = [
   "Vincular tarjeta a Alipay / WeChat Pay",
   "Configurar la VPN antes de salir",
   "Descargar mapas y traductor offline",
-].map((t, i) => ({ id: `t${i}`, text: t, done: false }));
+].map((t, i) => ({ id: `t${i}`, text: t, done: false, notes: "", att: [] }));
 
 const DEFAULT_EXPERIENCES = [
   "Probar un coche totalmente autónomo (robotaxi)",
   "Subir al tren maglev de Shanghái",
   "Cenar en un mercado nocturno local",
   "Ver un espectáculo de la Ópera de Pekín",
-].map((t, i) => ({ id: `x${i}`, text: t, done: false }));
+].map((t, i) => ({ id: `x${i}`, text: t, done: false, notes: "", att: [] }));
 
 const DOCS = [
   { id: "doc1", label: "Pasaporte con validez mínima de 6 meses y 2 páginas libres" },
@@ -202,8 +202,8 @@ export default function App({ tripId, tripName, onBack }) {
           if (Array.isArray(d.packing)) setPacking(d.packing);
           if (Array.isArray(d.expenses)) setExpenses(d.expenses);
           if (d.docsChk) setDocsChk(d.docsChk);
-          if (Array.isArray(d.tasks)) setTasks(d.tasks);
-          if (Array.isArray(d.experiences)) setExperiences(d.experiences);
+          if (Array.isArray(d.tasks)) setTasks(d.tasks.map((t) => ({ notes: "", att: [], ...t })));
+          if (Array.isArray(d.experiences)) setExperiences(d.experiences.map((t) => ({ notes: "", att: [], ...t })));
           if (typeof d.rate === "number") setRate(d.rate);
           if (typeof d.budget === "number") setBudget(d.budget);
         }
@@ -240,10 +240,12 @@ export default function App({ tripId, tripName, onBack }) {
     if (!editing) return;
     if (editing.kind === "act") setItin((prev) => prev.map((c) => c.id !== editing.cityId ? c : { ...c, days: c.days.map((d) => d.id !== editing.dayId ? d : { ...d, items: d.items.map((a) => a.id !== editing.actId ? a : { ...a, att: [...a.att, attId] }) }) }));
     else if (editing.kind === "booking") setBookings((prev) => prev.map((b) => b.id !== editing.id ? b : { ...b, att: [...(b.att || []), attId] }));
+    else if (editing.kind === "check") (editing.listType === "tasks" ? setTasks : setExperiences)((prev) => prev.map((it) => it.id !== editing.id ? it : { ...it, att: [...(it.att || []), attId] }));
   };
   const detachFromCurrent = (attId) => {
     if (editing.kind === "act") setItin((prev) => prev.map((c) => c.id !== editing.cityId ? c : { ...c, days: c.days.map((d) => d.id !== editing.dayId ? d : { ...d, items: d.items.map((a) => a.id !== editing.actId ? a : { ...a, att: a.att.filter((x) => x !== attId) }) }) }));
     else if (editing.kind === "booking") setBookings((prev) => prev.map((b) => b.id !== editing.id ? b : { ...b, att: (b.att || []).filter((x) => x !== attId) }));
+    else if (editing.kind === "check") (editing.listType === "tasks" ? setTasks : setExperiences)((prev) => prev.map((it) => it.id !== editing.id ? it : { ...it, att: (it.att || []).filter((x) => x !== attId) }));
     purgeAtt(attId);
   };
   const handleFiles = async (fileList) => {
@@ -346,12 +348,12 @@ export default function App({ tripId, tripName, onBack }) {
   };
   const addTask = () => {
     if (!ntask.trim()) return;
-    setTasks((x) => [...x, { id: "t" + Date.now(), text: ntask.trim(), done: false }]);
+    setTasks((x) => [...x, { id: "t" + Date.now(), text: ntask.trim(), done: false, notes: "", att: [] }]);
     setNtask("");
   };
   const addExp = () => {
     if (!nexp.trim()) return;
-    setExperiences((x) => [...x, { id: "x" + Date.now(), text: nexp.trim(), done: false }]);
+    setExperiences((x) => [...x, { id: "x" + Date.now(), text: nexp.trim(), done: false, notes: "", att: [] }]);
     setNexp("");
   };
 
@@ -374,6 +376,19 @@ export default function App({ tripId, tripName, onBack }) {
     return (c && c.days.find((y) => y.id === editing.dayId)) || null;
   };
   const curBk = () => (editing && editing.kind === "booking" ? bookings.find((b) => b.id === editing.id) : null) || null;
+  const curCheck = () => {
+    if (!editing || editing.kind !== "check") return null;
+    const arr = editing.listType === "tasks" ? tasks : experiences;
+    return arr.find((i) => i.id === editing.id) || null;
+  };
+  const patchCheckById = (listType, id, patch) => (listType === "tasks" ? setTasks : setExperiences)((x) => x.map((y) => y.id === id ? { ...y, ...patch } : y));
+  const patchCheck = (patch) => editing && patchCheckById(editing.listType, editing.id, patch);
+  const deleteCheck = () => {
+    const c = curCheck();
+    if (c) (c.att || []).forEach(purgeAtt);
+    (editing.listType === "tasks" ? setTasks : setExperiences)((prev) => prev.filter((x) => x.id !== editing.id));
+    setEditing(null);
+  };
 
   const resetAll = async () => {
     Object.keys(attMap).forEach((id) => { try { store.delete(ATT_PREFIX + id); } catch (e) {} });
@@ -571,6 +586,10 @@ export default function App({ tripId, tripName, onBack }) {
       ) : itin.map((s, si) => {
         const open = openCity[s.id];
         const TrI = s.into ? (TR_ICON[s.into.mode] || MapPin) : null;
+        const cityDates = s.days.filter((d) => d.date).map((d) => d.date).sort();
+        const fmtDay = (iso) => { const p = dparts(iso); return `${p.dd} ${p.mmm}`; };
+        const arrIso = cityDates[0], depIso = cityDates[cityDates.length - 1];
+        const dateRange = arrIso ? (depIso && depIso !== arrIso ? `${fmtDay(arrIso)} – ${fmtDay(depIso)}` : fmtDay(arrIso)) : null;
         return (
           <div key={s.id} className="flex gap-3">
             <div className="flex flex-col items-center" style={{ width: 18 }}>
@@ -580,7 +599,10 @@ export default function App({ tripId, tripName, onBack }) {
             <div className="flex-1 pb-3">
               <div id={"city-" + s.id} className="w-full flex items-center justify-between rounded-xl px-4 py-3 mb-2" style={{ background: C.card, border: `1px solid ${C.line}` }}>
                 <button onClick={() => setOpenCity((o) => ({ ...o, [s.id]: !o[s.id] }))} className="flex-1 text-left">
-                  <div style={{ fontWeight: 800, color: C.ink, fontSize: 16 }}>{s.city}</div>
+                  <div className="flex items-baseline gap-2" style={{ flexWrap: "wrap" }}>
+                    <span style={{ fontWeight: 800, color: C.ink, fontSize: 16 }}>{s.city}</span>
+                    {dateRange && <span style={{ ...mono, fontSize: 11.5, fontWeight: 700, color: s.color }}>{dateRange}</span>}
+                  </div>
                   {s.into && s.into.mode && (
                     <div className="flex items-center gap-1.5 mt-0.5" style={{ color: s.color, fontSize: 11, fontWeight: 600 }}>
                       {TrI && <TrI size={11} />} {s.into.mode}{s.into.detail ? ` · ${s.into.detail}` : ""}
@@ -933,7 +955,7 @@ export default function App({ tripId, tripName, onBack }) {
   );
 
   /* ============ checklist ============ */
-  const renderCheckGroup = ({ icon: Ic, title, subtitle, accent, items, setItems, draft, setDraft, add, placeholder }) => {
+  const renderCheckGroup = ({ icon: Ic, title, subtitle, accent, items, setItems, draft, setDraft, add, placeholder, listType }) => {
     const done = items.filter((i) => i.done).length;
     return (
       <div className="mb-6">
@@ -963,8 +985,17 @@ export default function App({ tripId, tripName, onBack }) {
             {items.map((it, i) => (
               <div key={it.id} className="flex items-center gap-3 px-4 py-3" style={{ borderTop: i ? `1px solid ${C.line}` : "none" }}>
                 <CheckBox on={it.done} color={accent} onClick={() => setItems((x) => x.map((y) => y.id === it.id ? { ...y, done: !y.done } : y))} />
-                <span className="flex-1" style={{ fontSize: 14, color: it.done ? C.sub : C.ink, textDecoration: it.done ? "line-through" : "none" }}>{it.text}</span>
-                <button onClick={() => setItems((x) => x.filter((y) => y.id !== it.id))}><Trash2 size={15} color={C.sub} /></button>
+                <button onClick={() => { setAttErr(""); setEditing({ kind: "check", listType, id: it.id }); }} className="flex-1 text-left min-w-0">
+                  <span style={{ fontSize: 14, color: it.done ? C.sub : C.ink, textDecoration: it.done ? "line-through" : "none" }}>{it.text}</span>
+                  {((it.att && it.att.length) || it.notes) && (
+                    <div className="flex items-center gap-2.5 mt-1">
+                      {it.att && it.att.length > 0 && <span className="flex items-center gap-0.5" style={{ fontSize: 11, color: C.sub }}><Paperclip size={11} />{it.att.length}</span>}
+                      {it.notes && <StickyNote size={12} color={C.sub} />}
+                    </div>
+                  )}
+                </button>
+                <ChevronRight size={16} color={C.line} style={{ flexShrink: 0 }} />
+                <button onClick={() => { (it.att || []).forEach(purgeAtt); setItems((x) => x.filter((y) => y.id !== it.id)); }}><Trash2 size={15} color={C.sub} /></button>
               </div>
             ))}
           </Card>
@@ -979,14 +1010,14 @@ export default function App({ tripId, tripName, onBack }) {
         <div style={{ fontSize: 22, fontWeight: 800, color: C.ink }}>Checklist</div>
         <div style={{ color: C.sub, fontSize: 13 }}>Gestiones por resolver y experiencias que quieres vivir.</div>
       </div>
-      {renderCheckGroup({ icon: ClipboardList, title: "Gestiones", subtitle: "Cosas que organizar antes y durante el viaje", accent: C.red, items: tasks, setItems: setTasks, draft: ntask, setDraft: setNtask, add: addTask, placeholder: "Ej. Comprar el seguro de viaje" })}
-      {renderCheckGroup({ icon: Sparkles, title: "Experiencias", subtitle: "Momentos que no te quieres perder", accent: C.jade, items: experiences, setItems: setExperiences, draft: nexp, setDraft: setNexp, add: addExp, placeholder: "Ej. Probar un coche autónomo" })}
+      {renderCheckGroup({ icon: ClipboardList, title: "Gestiones", subtitle: "Cosas que organizar antes y durante el viaje", accent: C.red, items: tasks, setItems: setTasks, draft: ntask, setDraft: setNtask, add: addTask, placeholder: "Ej. Comprar el seguro de viaje", listType: "tasks" })}
+      {renderCheckGroup({ icon: Sparkles, title: "Experiencias", subtitle: "Momentos que no te quieres perder", accent: C.jade, items: experiences, setItems: setExperiences, draft: nexp, setDraft: setNexp, add: addExp, placeholder: "Ej. Probar un coche autónomo", listType: "experiences" })}
     </div>
   );
 
   /* ============ adjuntos (compartido) ============ */
   const renderAttachments = (attList) => (
-    <Field label="Notas y archivos adjuntos">
+    <Field label="Archivos adjuntos">
       <div className="flex flex-col gap-2">
         {attList.map((id) => {
           const a = attMap[id];
@@ -1008,10 +1039,16 @@ export default function App({ tripId, tripName, onBack }) {
             </div>
           );
         })}
-        <label className="flex items-center justify-center gap-2 rounded-lg py-2.5" style={{ border: `1.5px dashed ${C.line}`, color: C.red, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-          <Paperclip size={16} /> Adjuntar imagen o documento
-          <input type="file" multiple accept="image/*,application/pdf,.doc,.docx,.txt" style={{ display: "none" }} onChange={(e) => { handleFiles(e.target.files); e.target.value = ""; }} />
-        </label>
+        <div className="flex gap-2">
+          <label className="flex-1 flex items-center justify-center gap-2 rounded-lg py-2.5" style={{ border: `1.5px dashed ${C.line}`, color: C.red, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+            <ImageIcon size={16} /> Subir imagen
+            <input type="file" multiple accept="image/*" style={{ display: "none" }} onChange={(e) => { handleFiles(e.target.files); e.target.value = ""; }} />
+          </label>
+          <label className="flex-1 flex items-center justify-center gap-2 rounded-lg py-2.5" style={{ border: `1.5px dashed ${C.line}`, color: C.red, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+            <FileText size={16} /> Subir documento
+            <input type="file" multiple accept="application/pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx" style={{ display: "none" }} onChange={(e) => { handleFiles(e.target.files); e.target.value = ""; }} />
+          </label>
+        </div>
         {attErr && <div style={{ fontSize: 12, color: C.red }}>{attErr}</div>}
         <div style={{ fontSize: 11, color: C.sub }}>Hasta 4,5 MB por archivo. Se guardan en este dispositivo.</div>
       </div>
@@ -1023,11 +1060,12 @@ export default function App({ tripId, tripName, onBack }) {
     if (!editing) return null;
     const k = editing.kind;
     let title = "", subtitle = "", attList = [];
-    let act = null, bk = null, city = null, day = null;
+    let act = null, bk = null, city = null, day = null, chk = null;
     if (k === "act") { act = curAct(); if (!act) return null; const dd = curDayForAct(); subtitle = dd ? `${dd.date ? `${dparts(dd.date).dow} ${dparts(dd.date).dd} ${dparts(dd.date).mmm} · ` : ""}${dd.title || "Día"}` : ""; title = "Detalle de actividad"; attList = act.att || []; }
     else if (k === "booking") { bk = curBk(); if (!bk) return null; subtitle = `Reserva · ${bk.type}`; title = "Detalle de reserva"; attList = bk.att || []; }
     else if (k === "city") { city = curCity(); if (!city) return null; subtitle = "Parada"; title = "Editar parada"; }
     else if (k === "day") { city = curCity(); day = curDayObj(); if (!day) return null; subtitle = city ? city.city : "Día"; title = "Editar día"; }
+    else if (k === "check") { chk = curCheck(); if (!chk) return null; subtitle = editing.listType === "tasks" ? "Gestión" : "Experiencia"; title = "Detalle"; attList = chk.att || []; }
 
     const overlay = { position: "fixed", inset: 0, background: "rgba(20,16,12,0.45)", zIndex: 50, display: "flex", alignItems: "flex-end", justifyContent: "center" };
     const sheet = { background: C.paper, width: "100%", maxWidth: 480, maxHeight: "90vh", overflowY: "auto", borderTopLeftRadius: 20, borderTopRightRadius: 20 };
@@ -1112,6 +1150,20 @@ export default function App({ tripId, tripName, onBack }) {
                 <button onClick={() => deleteDay(editing.cityId, editing.dayId)} className="w-full flex items-center justify-center gap-2 rounded-xl py-3 mt-1" style={{ color: C.red, border: `1px solid ${C.line}`, fontSize: 13, fontWeight: 600 }}><Trash2 size={15} /> Eliminar día</button>
               </>
             )}
+
+            {k === "check" && (
+              <>
+                <Field label={editing.listType === "tasks" ? "Gestión" : "Experiencia"}>
+                  <input value={chk.text} onChange={(e) => patchCheck({ text: e.target.value })} style={inp} />
+                </Field>
+                <button onClick={() => patchCheck({ done: !chk.done })} className="w-full flex items-center gap-3 rounded-xl px-4 py-3 mb-3" style={{ background: C.card, border: `1px solid ${chk.done ? C.jade + "66" : C.line}` }}>
+                  <CheckBox on={chk.done} /><span style={{ fontSize: 14, fontWeight: 600, color: C.ink }}>{editing.listType === "tasks" ? "Hecho" : "Vivido"}</span>
+                </button>
+                <Field label="Notas"><textarea value={chk.notes || ""} onChange={(e) => patchCheck({ notes: e.target.value })} rows={3} placeholder="Detalles, enlaces, recordatorios…" style={{ ...inp, resize: "none" }} /></Field>
+                {renderAttachments(attList)}
+                <button onClick={deleteCheck} className="w-full flex items-center justify-center gap-2 rounded-xl py-3 mt-2" style={{ color: C.red, border: `1px solid ${C.line}`, fontSize: 13, fontWeight: 600 }}><Trash2 size={15} /> Eliminar</button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -1142,8 +1194,8 @@ export default function App({ tripId, tripName, onBack }) {
           </button>
         </div>
       )}
-      <div style={{ paddingTop: onBack ? 8 : 16 }}>{active.render()}</div>
-      <div style={{ position: "sticky", bottom: 0, background: "rgba(245,241,234,0.92)", backdropFilter: "blur(8px)", borderTop: `1px solid ${C.line}` }}>
+      <div style={{ paddingTop: onBack ? 8 : 16, paddingBottom: 76 }}>{active.render()}</div>
+      <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, maxWidth: 480, margin: "0 auto", background: "rgba(245,241,234,0.92)", backdropFilter: "blur(8px)", borderTop: `1px solid ${C.line}`, zIndex: 40 }}>
         <div style={{ display: "flex", flexWrap: "nowrap" }}>
           {TABS.map((t) => <NavBtn key={t.id} active={tab === t.id} onClick={() => setTab(t.id)} icon={t.icon} label={t.label} />)}
         </div>
