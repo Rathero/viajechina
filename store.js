@@ -20,6 +20,27 @@ async function currentUserId() {
   return data && data.user ? data.user.id : undefined;
 }
 
+/* Para viajes compartidos, el contenido (filas kv) pertenece SIEMPRE al dueno
+   del viaje, no a quien escribe. Asi todos los miembros editan la misma copia.
+   Resolvemos el dueno a partir del id que viaja embebido en la clave kv
+   ('trip_<uuid>' / 'trip_<uuid>_att_..') consultando la tabla `trips`. */
+const ownerCache = new Map();
+
+function tripIdFromKey(key) {
+  const m = /^trip_([0-9a-fA-F-]{36})/.exec(key || "");
+  return m ? m[1] : null;
+}
+
+async function ownerForKey(key) {
+  const tripId = tripIdFromKey(key);
+  if (!tripId) return currentUserId(); // claves sin viaje: dueno = usuario actual
+  if (ownerCache.has(tripId)) return ownerCache.get(tripId);
+  const { data } = await supabase.from("trips").select("user_id").eq("id", tripId).maybeSingle();
+  const owner = data && data.user_id ? data.user_id : await currentUserId();
+  ownerCache.set(tripId, owner);
+  return owner;
+}
+
 export const store = {
   async get(key) {
     ensureConfigured();
@@ -30,7 +51,9 @@ export const store = {
   },
   async set(key, value) {
     ensureConfigured();
-    const user_id = await currentUserId();
+    // El dueno del viaje es el propietario de la fila (no quien escribe), para
+    // que la edicion compartida actualice una unica copia canonica.
+    const user_id = await ownerForKey(key);
     const { error } = await supabase
       .from("kv")
       .upsert({ user_id, key, data: JSON.parse(value) }, { onConflict: "user_id,key" });

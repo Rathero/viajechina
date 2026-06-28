@@ -56,7 +56,25 @@ npm run dev                     # http://localhost:5173
 
 Cada usuario inicia sesión con **Google** o **email + contraseña**. En "Mis viajes" puede crear,
 renombrar, abrir y borrar sus viajes; cada viaje es **privado de su dueño** (RLS de Supabase).
-(Compartir un viaje entre varias personas queda como mejora futura.)
+
+## Compartir un viaje (viajes en grupo)
+
+Desde "Mis viajes", el botón **Compartir** (icono de persona+) de cada viaje propio permite
+**invitar por email**. La otra persona, al iniciar sesión con ese correo, ve la invitación
+arriba en "Mis viajes" y puede **Aceptar** o **Rechazar**. Si la acepta, el viaje aparece en
+la sección **Viajes en grupo** y lo abre y edita **como si fuera suyo**: la ruta, días,
+actividades, reservas, gastos, etc. son **una sola copia compartida** (no hay duplicados),
+así que los cambios de cualquier miembro los ven todos.
+
+- El **dueño** puede invitar a más gente, ver el estado de cada invitación (pendiente /
+  aceptada / rechazada) y **quitar el acceso** en cualquier momento.
+- Un **miembro** puede **salir** del viaje (deja de verlo; el viaje no se borra).
+- Borrar el viaje completo sigue siendo solo del **dueño**.
+
+Cómo funciona por dentro: el contenido (tabla `kv`) sigue perteneciendo al **dueño**; los
+miembros aceptados leen y escriben esas mismas filas gracias a las políticas RLS. La tabla
+nueva `trip_shares` guarda cada invitación/membresía. Todo esto se crea al ejecutar
+`supabase.sql` (es idempotente).
 
 ## Cómo se guardan los datos
 
@@ -90,13 +108,14 @@ sesión para mantenerte logueado entre recargas.)
 ├── package.json
 ├── vite.config.js
 ├── .env.example
-├── supabase.sql          # tablas trips + kv con RLS (pegar en Supabase)
+├── supabase.sql          # tablas trips + kv + trip_shares con RLS (pegar en Supabase)
 ├── main.jsx              # arranque
 ├── Root.jsx             # orquesta login / mis viajes / app
 ├── Login.jsx            # acceso (Google, email+contraseña)
-├── Trips.jsx            # pantalla "Mis viajes"
+├── Trips.jsx            # pantalla "Mis viajes" + viajes en grupo + invitaciones
 ├── supabase.js          # cliente Supabase
-├── store.js             # capa de datos clave-valor (Supabase o local)
+├── store.js             # capa de datos clave-valor (escribe en la copia del dueño)
 ├── tripsApi.js          # CRUD de viajes (tabla trips)
+├── sharingApi.js        # invitaciones y membresías (tabla trip_shares)
 └── App.jsx              # el planificador de un viaje
 ```
