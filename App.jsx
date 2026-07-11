@@ -578,8 +578,10 @@ export default function App({ tripId, tripName, onBack }) {
     };
 
     let h = "";
-    const gen = todayISO();
-    h += `<header><div class="brand">MI VIAJE</div><h1>${esc(tripTitle || "Viaje")}</h1><p class="gen">Copia de seguridad · generada el ${dparts(gen).dd} ${dparts(gen).mmm} ${gen.slice(0, 4)}</p></header>`;
+    const now = new Date();
+    const pad2 = (n) => String(n).padStart(2, "0");
+    const stamp = `${pad2(now.getDate())}/${pad2(now.getMonth() + 1)}/${now.getFullYear()} a las ${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
+    h += `<header><div class="brand">MI VIAJE</div><h1>${esc(tripTitle || "Viaje")}</h1><p class="gen">📅 Descargado el ${esc(stamp)}</p></header>`;
 
     // 1) Resumen
     const routeLabel = itin.length ? `${itin[0].city} → ${itin[itin.length - 1].city}` : "Sin paradas";
@@ -691,11 +693,7 @@ export default function App({ tripId, tripName, onBack }) {
     TIPS.forEach((t) => h += `<li><b>${esc(t.t)}:</b> ${esc(t.x)}</li>`);
     h += `</ul></section>`;
 
-    // Respaldo JSON (para restaurar)
-    const backup = { tripTitle, itin, bookings, packing, expenses, docsChk, rate, budget, tasks, experiences };
-    h += `<details><summary>Datos de respaldo (JSON) — para restaurar la información</summary><pre>${esc(JSON.stringify(backup, null, 2))}</pre></details>`;
-
-    const css = "*{box-sizing:border-box}body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:#26211C;background:#F5F1EA;margin:0;padding:24px;line-height:1.5}header{border-bottom:3px solid #C0392B;padding-bottom:12px;margin-bottom:20px}.brand{color:#C0392B;font-weight:800;letter-spacing:3px;font-size:12px}h1{font-size:30px;margin:4px 0}.gen{color:#6F6358;font-size:13px;margin:0}section{background:#fff;border:1px solid #E5DCCF;border-radius:12px;padding:16px 18px;margin-bottom:16px}h2{font-size:20px;margin:0 0 10px;color:#7E2A20;border-bottom:1px solid #E5DCCF;padding-bottom:6px}h3{font-size:15px;margin:14px 0 6px}h4{font-size:13.5px;margin:10px 0 4px}.stop{margin:10px 0 14px;padding-left:10px;border-left:3px solid #C0392B}.day{margin:6px 0 6px 6px;padding-left:10px;border-left:2px solid #E5DCCF}.act,.bk{margin:5px 0;padding:6px 8px;background:#F5F1EA;border-radius:8px}.time{font-family:ui-monospace,monospace;color:#6F6358;font-size:12px;margin-right:6px}.tag{font-size:10px;text-transform:uppercase;color:#2E7D6B;font-weight:700}.meta{font-size:12px;color:#7E2A20;margin-top:2px}.notes{font-size:12.5px;color:#6F6358;white-space:pre-wrap;margin-top:3px}.sub{font-size:12px;color:#6F6358}.range{font-family:ui-monospace,monospace;font-size:12px;color:#C0392B;font-weight:700}.ok{color:#2E7D6B;font-weight:700;font-size:11px}.pend{color:#6F6358;font-size:11px}ul{margin:4px 0;padding-left:20px}li{margin:3px 0}code{background:#EFE8DC;padding:1px 5px;border-radius:4px;font-size:12px}a.lnk{color:#3D5A98;font-size:12px;word-break:break-all}.att{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}.att figure{margin:0;width:120px}.att img{width:120px;height:120px;object-fit:cover;border-radius:8px;border:1px solid #E5DCCF}.att figcaption{font-size:10px;color:#6F6358;word-break:break-all}.att a.file{font-size:12px;color:#3D5A98}.empty{color:#6F6358;font-style:italic;font-size:13px}details{margin-top:16px}summary{cursor:pointer;color:#6F6358;font-size:12px}pre{white-space:pre-wrap;word-break:break-all;font-size:10px;background:#fff;border:1px solid #E5DCCF;border-radius:8px;padding:10px}@media print{body{background:#fff;padding:0}section{break-inside:avoid;border:none;padding:8px 0}}";
+    const css ="*{box-sizing:border-box}body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:#26211C;background:#F5F1EA;margin:0;padding:24px;line-height:1.5}header{border-bottom:3px solid #C0392B;padding-bottom:12px;margin-bottom:20px}.brand{color:#C0392B;font-weight:800;letter-spacing:3px;font-size:12px}h1{font-size:30px;margin:4px 0}.gen{color:#6F6358;font-size:13px;margin:0}section{background:#fff;border:1px solid #E5DCCF;border-radius:12px;padding:16px 18px;margin-bottom:16px}h2{font-size:20px;margin:0 0 10px;color:#7E2A20;border-bottom:1px solid #E5DCCF;padding-bottom:6px}h3{font-size:15px;margin:14px 0 6px}h4{font-size:13.5px;margin:10px 0 4px}.stop{margin:10px 0 14px;padding-left:10px;border-left:3px solid #C0392B}.day{margin:6px 0 6px 6px;padding-left:10px;border-left:2px solid #E5DCCF}.act,.bk{margin:5px 0;padding:6px 8px;background:#F5F1EA;border-radius:8px}.time{font-family:ui-monospace,monospace;color:#6F6358;font-size:12px;margin-right:6px}.tag{font-size:10px;text-transform:uppercase;color:#2E7D6B;font-weight:700}.meta{font-size:12px;color:#7E2A20;margin-top:2px}.notes{font-size:12.5px;color:#6F6358;white-space:pre-wrap;margin-top:3px}.sub{font-size:12px;color:#6F6358}.range{font-family:ui-monospace,monospace;font-size:12px;color:#C0392B;font-weight:700}.ok{color:#2E7D6B;font-weight:700;font-size:11px}.pend{color:#6F6358;font-size:11px}ul{margin:4px 0;padding-left:20px}li{margin:3px 0}code{background:#EFE8DC;padding:1px 5px;border-radius:4px;font-size:12px}a.lnk{color:#3D5A98;font-size:12px;word-break:break-all}.att{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}.att figure{margin:0;width:120px}.att img{width:120px;height:120px;object-fit:cover;border-radius:8px;border:1px solid #E5DCCF}.att figcaption{font-size:10px;color:#6F6358;word-break:break-all}.att a.file{font-size:12px;color:#3D5A98}.empty{color:#6F6358;font-style:italic;font-size:13px}details{margin-top:16px}summary{cursor:pointer;color:#6F6358;font-size:12px}pre{white-space:pre-wrap;word-break:break-all;font-size:10px;background:#fff;border:1px solid #E5DCCF;border-radius:8px;padding:10px}@media print{@page{margin:14mm}body{background:#fff;padding:0;font-size:11px}section{border:none;padding:6px 0;margin:0 0 6px}.act,.bk,.day,figure,li{break-inside:avoid}h1,h2,h3,h4{break-after:avoid}a.lnk{color:#3D5A98}.att img{width:90px;height:90px}}";
 
     return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(tripTitle || "Viaje")} — copia de seguridad</title><style>${css}</style></head><body>${h}</body></html>`;
   };
@@ -705,11 +703,19 @@ export default function App({ tripId, tripName, onBack }) {
       const html = buildExportHTML();
       const blob = new Blob([html], { type: "text/html;charset=utf-8" });
       const url = URL.createObjectURL(blob);
-      const slug = (tripTitle || "viaje").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "viaje";
-      const a = document.createElement("a");
-      a.href = url; a.download = `viaje-${slug}-${todayISO()}.html`;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      const iframe = document.createElement("iframe");
+      iframe.setAttribute("aria-hidden", "true");
+      iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
+      let cleaned = false;
+      const cleanup = () => { if (cleaned) return; cleaned = true; try { document.body.removeChild(iframe); } catch (e) {} try { URL.revokeObjectURL(url); } catch (e) {} };
+      iframe.onload = () => {
+        const win = iframe.contentWindow;
+        try { win.addEventListener("afterprint", () => setTimeout(cleanup, 300), { once: true }); } catch (e) {}
+        try { win.focus(); win.print(); } catch (e) { cleanup(); }
+        setTimeout(cleanup, 60000); // respaldo si el navegador no emite afterprint
+      };
+      iframe.src = url;
+      document.body.appendChild(iframe);
     } catch (e) {}
     setConfirmExport(false);
   };
@@ -816,9 +822,9 @@ export default function App({ tripId, tripName, onBack }) {
           </div>
           <div className="flex-1">
             <div style={{ fontWeight: 700, color: C.ink, fontSize: 14 }}>Copia de seguridad</div>
-            <div style={{ color: C.sub, fontSize: 12.5, lineHeight: 1.45, marginBottom: 10 }}>Descarga un documento con toda la información del viaje, por si falla la app. Se abre en cualquier navegador y se puede imprimir a PDF.</div>
+            <div style={{ color: C.sub, fontSize: 12.5, lineHeight: 1.45, marginBottom: 10 }}>Genera un PDF con toda la información del viaje, por si falla la app. Incluye la fecha y hora de descarga al principio.</div>
             <button onClick={() => setConfirmExport(true)} className="flex items-center justify-center gap-2 rounded-lg w-full py-2.5" style={{ background: C.ink, color: "#fff", fontSize: 13.5, fontWeight: 700 }}>
-              <Download size={16} /> Exportar todo
+              <Download size={16} /> Exportar a PDF
             </button>
           </div>
         </div>
@@ -1634,13 +1640,13 @@ export default function App({ tripId, tripName, onBack }) {
       {confirmExport && (
         <div onClick={() => setConfirmExport(false)} style={{ position: "fixed", inset: 0, background: "rgba(20,16,12,0.55)", zIndex: 70, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <div onClick={(e) => e.stopPropagation()} style={{ background: C.paper, width: "100%", maxWidth: 360, borderRadius: 16, padding: 20, border: `1px solid ${C.line}` }}>
-            <div className="flex items-center gap-2 mb-2" style={{ color: C.ink, fontWeight: 800, fontSize: 16 }}><Download size={18} color={C.red} /> Exportar copia de seguridad</div>
+            <div className="flex items-center gap-2 mb-2" style={{ color: C.ink, fontWeight: 800, fontSize: 16 }}><Download size={18} color={C.red} /> Exportar a PDF</div>
             <div style={{ fontSize: 14, color: C.sub, lineHeight: 1.5, marginBottom: 20 }}>
-              Se descargará un documento con <b style={{ color: C.ink }}>toda</b> la información del viaje (resumen, ruta, gastos, reservas, maleta, listas y documentos), en el mismo orden que la app. Podrás abrirlo en cualquier navegador o imprimirlo a PDF.
+              Se abrirá el diálogo de impresión para guardar un <b style={{ color: C.ink }}>PDF</b> con <b style={{ color: C.ink }}>toda</b> la información del viaje (resumen, ruta, gastos, reservas, maleta, listas y documentos), en el mismo orden que la app. Elige <b style={{ color: C.ink }}>“Guardar como PDF”</b> como destino.
             </div>
             <div className="flex gap-2">
               <button onClick={() => setConfirmExport(false)} className="flex-1 rounded-lg py-2.5" style={{ border: `1px solid ${C.line}`, background: C.card, color: C.sub, fontSize: 14, fontWeight: 600 }}>Cancelar</button>
-              <button onClick={exportAll} className="flex-1 rounded-lg py-2.5" style={{ background: C.ink, color: "#fff", fontSize: 14, fontWeight: 700 }}>Exportar</button>
+              <button onClick={exportAll} className="flex-1 rounded-lg py-2.5" style={{ background: C.ink, color: "#fff", fontSize: 14, fontWeight: 700 }}>Exportar a PDF</button>
             </div>
           </div>
         </div>
