@@ -729,6 +729,7 @@ export default function App({ tripId, tripName, onBack }) {
                   <div className="flex items-baseline gap-2" style={{ flexWrap: "wrap" }}>
                     <span style={{ fontWeight: 800, color: C.ink, fontSize: 16 }}>{s.city}</span>
                     {dateRange && <span style={{ ...mono, fontSize: 11.5, fontWeight: 700, color: s.color }}>{dateRange}</span>}
+                    {s.link && <Link2 size={13} color={C.sub} style={{ alignSelf: "center" }} />}
                   </div>
                   {s.into && s.into.mode && (
                     <div className="flex items-center gap-1.5 mt-0.5" style={{ color: s.color, fontSize: 11, fontWeight: 600 }}>
@@ -756,7 +757,7 @@ export default function App({ tripId, tripName, onBack }) {
                           </div>
                           <button onClick={() => setEditing({ kind: "day", cityId: s.id, dayId: d.id })} className="flex-1 text-left">
                             <div style={{ fontSize: 10.5, color: C.sub, textTransform: "uppercase", letterSpacing: 1, fontWeight: 600 }}>{p ? p.dow : "Sin fecha"}</div>
-                            <div style={{ fontWeight: 700, color: d.title ? C.ink : C.sub, fontSize: 15 }}>{d.title || "Sin título"}</div>
+                            <div className="flex items-center gap-1.5" style={{ fontWeight: 700, color: d.title ? C.ink : C.sub, fontSize: 15 }}>{d.title || "Sin título"}{d.link && <Link2 size={12} color={C.sub} />}</div>
                           </button>
                           <button onClick={() => setEditing({ kind: "day", cityId: s.id, dayId: d.id })} className="p-1"><Pencil size={14} color={C.sub} /></button>
                         </div>
