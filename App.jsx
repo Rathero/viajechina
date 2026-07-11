@@ -191,6 +191,7 @@ export default function App({ tripId, tripName, onBack }) {
   const [ntask, setNtask] = useState("");
   const [nexp, setNexp] = useState("");
   const [confirmDel, setConfirmDel] = useState(null);
+  const [confirmExport, setConfirmExport] = useState(false);
   const [drag, setDrag] = useState(null); // arrastrar actividades entre días
   const dragSess = useRef(null);
   const dragPos = useRef({ x: 0, y: 0 });
@@ -560,6 +561,159 @@ export default function App({ tripId, tripName, onBack }) {
     setTimeout(() => { const el = document.getElementById("city-" + cityId); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 70);
   };
 
+  /* ============ exportar copia de seguridad ============ */
+  const buildExportHTML = () => {
+    const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[m]));
+    const fmtLong = (iso) => iso ? `${dparts(iso).dow} ${dparts(iso).dd} ${dparts(iso).mmm}` : "";
+    const fmtShort = (iso) => iso ? `${dparts(iso).dd} ${dparts(iso).mmm}` : "";
+    const linkHtml = (url) => url ? ` <a class="lnk" href="${esc(normalizeUrl(url))}">🔗 ${esc(url)}</a>` : "";
+    const attHtml = (attList) => {
+      const ids = (attList || []).filter((id) => attMap[id]);
+      if (!ids.length) return "";
+      return `<div class="att">` + ids.map((id) => {
+        const a = attMap[id];
+        if (a.type && a.type.startsWith("image/")) return `<figure><img src="${a.data}" alt="${esc(a.name)}"/><figcaption>${esc(a.name)}</figcaption></figure>`;
+        return `<a class="file" href="${a.data}" download="${esc(a.name)}">📄 ${esc(a.name)}</a>`;
+      }).join("") + `</div>`;
+    };
+
+    let h = "";
+    const gen = todayISO();
+    h += `<header><div class="brand">MI VIAJE</div><h1>${esc(tripTitle || "Viaje")}</h1><p class="gen">Copia de seguridad · generada el ${dparts(gen).dd} ${dparts(gen).mmm} ${gen.slice(0, 4)}</p></header>`;
+
+    // 1) Resumen
+    const routeLabel = itin.length ? `${itin[0].city} → ${itin[itin.length - 1].city}` : "Sin paradas";
+    const datesLabel = (minDate && maxDate) ? `${fmtShort(minDate)} – ${fmtShort(maxDate)}` : "Sin fechas";
+    h += `<section><h2>Resumen</h2>`;
+    h += `<p><b>${esc(routeLabel)}</b></p>`;
+    h += `<p>${esc(datesLabel)} · ${dates.length} día${dates.length === 1 ? "" : "s"} · ${itin.length} parada${itin.length === 1 ? "" : "s"}</p>`;
+    h += `<p>Gastado: <b>${esc(eur(totalSpent))}</b>${budget > 0 ? ` de ${esc(eur(budget))}` : ""}</p>`;
+    h += `<p>Reservas confirmadas: ${bookConfirmed}/${bookings.length} · Maleta: ${packDone}/${packing.length} · Actividades reservadas: ${actsBooked}/${allActs.length}</p>`;
+    h += `</section>`;
+
+    // 2) Ruta
+    h += `<section><h2>Ruta</h2>`;
+    if (!itin.length) h += `<p class="empty">Sin paradas.</p>`;
+    itin.forEach((c) => {
+      const cd = c.days.filter((d) => d.date).map((d) => d.date).sort();
+      const range = cd.length ? (cd[0] === cd[cd.length - 1] ? fmtShort(cd[0]) : `${fmtShort(cd[0])} – ${fmtShort(cd[cd.length - 1])}`) : "";
+      h += `<div class="stop"><h3>${esc(c.city)}${range ? ` <span class="range">${esc(range)}</span>` : ""}</h3>`;
+      if (c.into && c.into.mode) h += `<p class="sub">Llegada: ${esc(c.into.mode)}${c.into.detail ? ` · ${esc(c.into.detail)}` : ""}</p>`;
+      if (c.link) h += `<p>${linkHtml(c.link)}</p>`;
+      c.days.forEach((d) => {
+        h += `<div class="day"><h4>${esc(fmtLong(d.date) || "Sin fecha")}${d.title ? ` · ${esc(d.title)}` : ""}${d.link ? linkHtml(d.link) : ""}</h4>`;
+        if (!d.items.length) h += `<p class="empty">Sin actividades.</p>`;
+        d.items.forEach((a) => {
+          const time = a.t ? (a.tEnd ? `${a.t}–${a.tEnd}` : a.t) : "—";
+          const bits = [];
+          if (a.price > 0) bits.push(a.cur === "CNY" ? `¥${a.price}` : eur(a.price));
+          if (a.paidBy) bits.push(`Pagó ${PAYER_LABEL[a.paidBy]}`);
+          if (a.booked) bits.push("✔ comprado/reservado");
+          h += `<div class="act"><span class="time">${esc(time)}</span> <b>${esc(a.x || "(sin título)")}</b> <span class="tag">${esc(TYPE[a.type] ? TYPE[a.type].l : a.type)}</span>`;
+          if (bits.length) h += `<div class="meta">${esc(bits.join(" · "))}</div>`;
+          if (a.notes) h += `<div class="notes">${esc(a.notes)}</div>`;
+          if (a.link) h += `<div>${linkHtml(a.link)}</div>`;
+          h += attHtml(a.att);
+          h += `</div>`;
+        });
+        h += `</div>`;
+      });
+      h += `</div>`;
+    });
+    h += `</section>`;
+
+    // 3) Gastos
+    h += `<section><h2>Gastos</h2>`;
+    h += `<p>Total: <b>${esc(eur(totalSpent))}</b> (Ruta ${esc(eur(routeTotal))} · Manual ${esc(eur(manualTotal))})</p>`;
+    if (budget > 0) h += `<p>Presupuesto: ${esc(eur(budget))} · ${totalSpent > budget ? "Excedido en" : "Queda"} ${esc(eur(Math.abs(budget - totalSpent)))}</p>`;
+    h += `<p>Cambio: 1 € ≈ ${esc(rate)} ¥</p>`;
+    h += `<h3>Balance Fa · Rubén</h3>`;
+    h += `<p>Fa ha pagado ${esc(eur(paidBy.fa))} · Rubén ha pagado ${esc(eur(paidBy.ruben))}</p>`;
+    if (sharedTotal <= 0) h += `<p class="sub">Sin gastos con pagador asignado.</p>`;
+    else if (balanceAmount < 0.005) h += `<p><b>Estáis en paz.</b></p>`;
+    else h += `<p><b>${PAYER_LABEL[balanceDebtor]} debe ${esc(eur(balanceAmount))} a ${PAYER_LABEL[balanceCreditor]}</b></p>`;
+    if (unassignedPaid > 0.005) h += `<p class="sub">${esc(eur(unassignedPaid))} sin asignar a una persona.</p>`;
+    if (pieData.length) { h += `<h3>Por categoría</h3><ul>`; pieData.forEach((d) => h += `<li>${esc(d.name)}: ${esc(eur(d.value))}</li>`); h += `</ul>`; }
+    if (expenses.length) { h += `<h3>Gastos manuales</h3><ul>`; expenses.forEach((e) => h += `<li>${esc(e.desc || e.cat)} — ${esc(e.cat)} · ${esc(fmtShort(e.date))} · ${e.paidBy ? esc(PAYER_LABEL[e.paidBy]) : "—"} · <b>${esc(eur(eurOf(e.amount, e.cur)))}</b>${e.cur === "CNY" ? ` (¥${esc(e.amount)})` : ""}${e.link ? linkHtml(e.link) : ""}</li>`); h += `</ul>`; }
+    if (routeExpenses.length) { h += `<h3>Gastos de la ruta</h3><ul>`; routeExpenses.forEach((e) => h += `<li>${esc(e.name)} — ${esc(e.city)}${e.date ? ` · ${esc(fmtShort(e.date))}` : ""} · ${e.paidBy ? esc(PAYER_LABEL[e.paidBy]) : "—"} · <b>${esc(eur(eurOf(e.amount, e.cur)))}</b></li>`); h += `</ul>`; }
+    h += `</section>`;
+
+    // 4) Reservas
+    h += `<section><h2>Reservas</h2>`;
+    if (!bookings.length) h += `<p class="empty">Sin reservas.</p>`;
+    ["Vuelo", "Tren", "Hotel", "Actividad"].map((t) => [t, bookings.filter((b) => b.type === t)]).filter(([, a]) => a.length).forEach(([type, arr]) => {
+      h += `<h3>${esc(type === "Actividad" ? "Actividades" : type + "s")}</h3>`;
+      arr.forEach((b) => {
+        h += `<div class="bk"><b>${esc(b.title)}</b> ${b.status === "confirmado" ? '<span class="ok">✔ confirmada</span>' : '<span class="pend">pendiente</span>'}`;
+        const sub = [];
+        if (b.date) sub.push(fmtShort(b.date));
+        if (b.detail) sub.push(b.detail);
+        if (sub.length) h += `<div class="sub">${esc(sub.join(" · "))}</div>`;
+        if (b.ref) h += `<div>Localizador: <code>${esc(b.ref)}</code></div>`;
+        if (b.notes) h += `<div class="notes">${esc(b.notes)}</div>`;
+        if (b.link) h += `<div>${linkHtml(b.link)}</div>`;
+        h += attHtml(b.att);
+        h += `</div>`;
+      });
+    });
+    h += `</section>`;
+
+    // 5) Maleta
+    h += `<section><h2>Maleta</h2><p>${packDone} de ${packing.length} preparado.</p>`;
+    PACK_CATS.forEach((cat) => {
+      const arr = packing.filter((p) => p.cat === cat);
+      if (!arr.length) return;
+      h += `<h3>${esc(cat)}</h3><ul>`;
+      arr.forEach((p) => h += `<li>${p.done ? "☑" : "☐"} ${esc(p.item)}</li>`);
+      h += `</ul>`;
+    });
+    h += `</section>`;
+
+    // 6) Listas
+    const listBlock = (title, items) => {
+      let s = `<h3>${esc(title)} (${items.filter((i) => i.done).length}/${items.length})</h3>`;
+      if (!items.length) return s + `<p class="empty">Vacía.</p>`;
+      s += `<ul>`;
+      items.forEach((it) => {
+        s += `<li>${it.done ? "☑" : "☐"} ${esc(it.text)}${it.link ? linkHtml(it.link) : ""}`;
+        if (it.notes) s += `<div class="notes">${esc(it.notes)}</div>`;
+        s += attHtml(it.att);
+        s += `</li>`;
+      });
+      return s + `</ul>`;
+    };
+    h += `<section><h2>Listas</h2>${listBlock("Gestiones", tasks)}${listBlock("Experiencias", experiences)}</section>`;
+
+    // 7) Info
+    h += `<section><h2>Documentos y consejos</h2><h3>Antes de salir</h3><ul>`;
+    DOCS.forEach((d) => h += `<li>${docsChk[d.id] ? "☑" : "☐"} ${esc(d.label)}</li>`);
+    h += `</ul><h3>Consejos prácticos</h3><ul>`;
+    TIPS.forEach((t) => h += `<li><b>${esc(t.t)}:</b> ${esc(t.x)}</li>`);
+    h += `</ul></section>`;
+
+    // Respaldo JSON (para restaurar)
+    const backup = { tripTitle, itin, bookings, packing, expenses, docsChk, rate, budget, tasks, experiences };
+    h += `<details><summary>Datos de respaldo (JSON) — para restaurar la información</summary><pre>${esc(JSON.stringify(backup, null, 2))}</pre></details>`;
+
+    const css = "*{box-sizing:border-box}body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:#26211C;background:#F5F1EA;margin:0;padding:24px;line-height:1.5}header{border-bottom:3px solid #C0392B;padding-bottom:12px;margin-bottom:20px}.brand{color:#C0392B;font-weight:800;letter-spacing:3px;font-size:12px}h1{font-size:30px;margin:4px 0}.gen{color:#6F6358;font-size:13px;margin:0}section{background:#fff;border:1px solid #E5DCCF;border-radius:12px;padding:16px 18px;margin-bottom:16px}h2{font-size:20px;margin:0 0 10px;color:#7E2A20;border-bottom:1px solid #E5DCCF;padding-bottom:6px}h3{font-size:15px;margin:14px 0 6px}h4{font-size:13.5px;margin:10px 0 4px}.stop{margin:10px 0 14px;padding-left:10px;border-left:3px solid #C0392B}.day{margin:6px 0 6px 6px;padding-left:10px;border-left:2px solid #E5DCCF}.act,.bk{margin:5px 0;padding:6px 8px;background:#F5F1EA;border-radius:8px}.time{font-family:ui-monospace,monospace;color:#6F6358;font-size:12px;margin-right:6px}.tag{font-size:10px;text-transform:uppercase;color:#2E7D6B;font-weight:700}.meta{font-size:12px;color:#7E2A20;margin-top:2px}.notes{font-size:12.5px;color:#6F6358;white-space:pre-wrap;margin-top:3px}.sub{font-size:12px;color:#6F6358}.range{font-family:ui-monospace,monospace;font-size:12px;color:#C0392B;font-weight:700}.ok{color:#2E7D6B;font-weight:700;font-size:11px}.pend{color:#6F6358;font-size:11px}ul{margin:4px 0;padding-left:20px}li{margin:3px 0}code{background:#EFE8DC;padding:1px 5px;border-radius:4px;font-size:12px}a.lnk{color:#3D5A98;font-size:12px;word-break:break-all}.att{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}.att figure{margin:0;width:120px}.att img{width:120px;height:120px;object-fit:cover;border-radius:8px;border:1px solid #E5DCCF}.att figcaption{font-size:10px;color:#6F6358;word-break:break-all}.att a.file{font-size:12px;color:#3D5A98}.empty{color:#6F6358;font-style:italic;font-size:13px}details{margin-top:16px}summary{cursor:pointer;color:#6F6358;font-size:12px}pre{white-space:pre-wrap;word-break:break-all;font-size:10px;background:#fff;border:1px solid #E5DCCF;border-radius:8px;padding:10px}@media print{body{background:#fff;padding:0}section{break-inside:avoid;border:none;padding:8px 0}}";
+
+    return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(tripTitle || "Viaje")} — copia de seguridad</title><style>${css}</style></head><body>${h}</body></html>`;
+  };
+
+  const exportAll = () => {
+    try {
+      const html = buildExportHTML();
+      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const slug = (tripTitle || "viaje").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "viaje";
+      const a = document.createElement("a");
+      a.href = url; a.download = `viaje-${slug}-${todayISO()}.html`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (e) {}
+    setConfirmExport(false);
+  };
+
   /* ============ calendario ============ */
   const renderMonth = (year, mIdx) => {
     const off = (new Date(Date.UTC(year, mIdx, 1)).getUTCDay() + 6) % 7;
@@ -654,6 +808,21 @@ export default function App({ tripId, tripName, onBack }) {
           </Card>
         ))}
       </div>
+
+      <Card style={{ padding: 16, marginTop: 16 }}>
+        <div className="flex items-start gap-3">
+          <div className="flex items-center justify-center rounded-lg" style={{ background: C.paper, width: 38, height: 38, flexShrink: 0 }}>
+            <Download size={18} color={C.red} />
+          </div>
+          <div className="flex-1">
+            <div style={{ fontWeight: 700, color: C.ink, fontSize: 14 }}>Copia de seguridad</div>
+            <div style={{ color: C.sub, fontSize: 12.5, lineHeight: 1.45, marginBottom: 10 }}>Descarga un documento con toda la información del viaje, por si falla la app. Se abre en cualquier navegador y se puede imprimir a PDF.</div>
+            <button onClick={() => setConfirmExport(true)} className="flex items-center justify-center gap-2 rounded-lg w-full py-2.5" style={{ background: C.ink, color: "#fff", fontSize: 13.5, fontWeight: 700 }}>
+              <Download size={16} /> Exportar todo
+            </button>
+          </div>
+        </div>
+      </Card>
 
       <div style={{ textAlign: "center", marginTop: 18 }}>
         {!confirmReset ? (
@@ -1458,6 +1627,20 @@ export default function App({ tripId, tripName, onBack }) {
             <div className="flex gap-2">
               <button onClick={() => setConfirmDel(null)} className="flex-1 rounded-lg py-2.5" style={{ border: `1px solid ${C.line}`, background: C.card, color: C.sub, fontSize: 14, fontWeight: 600 }}>Cancelar</button>
               <button onClick={() => { const fn = confirmDel.onConfirm; setConfirmDel(null); fn && fn(); }} className="flex-1 rounded-lg py-2.5" style={{ background: C.red, color: "#fff", fontSize: 14, fontWeight: 700 }}>Eliminar</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {confirmExport && (
+        <div onClick={() => setConfirmExport(false)} style={{ position: "fixed", inset: 0, background: "rgba(20,16,12,0.55)", zIndex: 70, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: C.paper, width: "100%", maxWidth: 360, borderRadius: 16, padding: 20, border: `1px solid ${C.line}` }}>
+            <div className="flex items-center gap-2 mb-2" style={{ color: C.ink, fontWeight: 800, fontSize: 16 }}><Download size={18} color={C.red} /> Exportar copia de seguridad</div>
+            <div style={{ fontSize: 14, color: C.sub, lineHeight: 1.5, marginBottom: 20 }}>
+              Se descargará un documento con <b style={{ color: C.ink }}>toda</b> la información del viaje (resumen, ruta, gastos, reservas, maleta, listas y documentos), en el mismo orden que la app. Podrás abrirlo en cualquier navegador o imprimirlo a PDF.
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setConfirmExport(false)} className="flex-1 rounded-lg py-2.5" style={{ border: `1px solid ${C.line}`, background: C.card, color: C.sub, fontSize: 14, fontWeight: 600 }}>Cancelar</button>
+              <button onClick={exportAll} className="flex-1 rounded-lg py-2.5" style={{ background: C.ink, color: "#fff", fontSize: 14, fontWeight: 700 }}>Exportar</button>
             </div>
           </div>
         </div>
