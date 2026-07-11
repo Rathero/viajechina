@@ -88,14 +88,14 @@ const DEFAULT_TASKS = [
   "Vincular tarjeta a Alipay / WeChat Pay",
   "Configurar la VPN antes de salir",
   "Descargar mapas y traductor offline",
-].map((t, i) => ({ id: `t${i}`, text: t, done: false, notes: "", att: [] }));
+].map((t, i) => ({ id: `t${i}`, text: t, done: false, notes: "", att: [], link: "" }));
 
 const DEFAULT_EXPERIENCES = [
   "Probar un coche totalmente autónomo (robotaxi)",
   "Subir al tren maglev de Shanghái",
   "Cenar en un mercado nocturno local",
   "Ver un espectáculo de la Ópera de Pekín",
-].map((t, i) => ({ id: `x${i}`, text: t, done: false, notes: "", att: [] }));
+].map((t, i) => ({ id: `x${i}`, text: t, done: false, notes: "", att: [], link: "" }));
 
 const DOCS = [
   { id: "doc1", label: "Pasaporte con validez mínima de 6 meses y 2 páginas libres" },
@@ -180,7 +180,7 @@ export default function App({ tripId, tripName, onBack }) {
   // formularios
   const [nc, setNc] = useState({ name: "", start: "", end: "", mode: "" });
   const [showAddCity, setShowAddCity] = useState(false);
-  const [ne, setNe] = useState({ cat: "Comida", desc: "", amount: "", cur: "EUR", date: todayISO(), paidBy: "fa" });
+  const [ne, setNe] = useState({ cat: "Comida", desc: "", amount: "", cur: "EUR", date: todayISO(), paidBy: "fa", link: "" });
   const [nb, setNb] = useState({ type: "Hotel", title: "", date: todayISO(), detail: "" });
   const [showAddB, setShowAddB] = useState(false);
   const [np, setNp] = useState({ cat: "Otros", item: "" });
@@ -205,16 +205,16 @@ export default function App({ tripId, tripName, onBack }) {
           const d = JSON.parse(r.value);
           if (typeof d.tripTitle === "string") setTripTitle(d.tripTitle);
           if (Array.isArray(d.itin)) {
-            const it = d.itin.map((c) => ({ into: null, color: PALETTE[0], days: [], ...c, days: (c.days || []).map((dd) => ({ title: "", items: [], ...dd, items: (dd.items || []).map((a) => ({ booked: false, notes: "", price: null, cur: "EUR", att: [], tEnd: "", paidBy: "", link: "", ...a })) })) }));
+            const it = d.itin.map((c) => ({ into: null, color: PALETTE[0], days: [], link: "", ...c, days: (c.days || []).map((dd) => ({ title: "", items: [], link: "", ...dd, items: (dd.items || []).map((a) => ({ booked: false, notes: "", price: null, cur: "EUR", att: [], tEnd: "", paidBy: "", link: "", ...a })) })) }));
             setItin(it);
             setOpenCity(Object.fromEntries(it.map((c) => [c.id, true])));
           }
           if (Array.isArray(d.bookings)) setBookings(d.bookings.map((b) => ({ ref: "", notes: "", att: [], status: "pendiente", link: "", ...b })));
           if (Array.isArray(d.packing)) setPacking(d.packing);
-          if (Array.isArray(d.expenses)) setExpenses(d.expenses.map((e) => ({ paidBy: "fa", ...e })));
+          if (Array.isArray(d.expenses)) setExpenses(d.expenses.map((e) => ({ paidBy: "fa", link: "", ...e })));
           if (d.docsChk) setDocsChk(d.docsChk);
-          if (Array.isArray(d.tasks)) setTasks(d.tasks.map((t) => ({ notes: "", att: [], ...t })));
-          if (Array.isArray(d.experiences)) setExperiences(d.experiences.map((t) => ({ notes: "", att: [], ...t })));
+          if (Array.isArray(d.tasks)) setTasks(d.tasks.map((t) => ({ notes: "", att: [], link: "", ...t })));
+          if (Array.isArray(d.experiences)) setExperiences(d.experiences.map((t) => ({ notes: "", att: [], link: "", ...t })));
           if (typeof d.rate === "number") setRate(d.rate);
           if (typeof d.budget === "number") setBudget(d.budget);
         }
@@ -279,9 +279,9 @@ export default function App({ tripId, tripName, onBack }) {
     if (!nc.name.trim()) return;
     const id = "c" + Date.now().toString(36);
     const color = PALETTE[itin.length % PALETTE.length];
-    const days = rangeISO(nc.start, nc.end).map((dt, i) => ({ id: `${id}-d${i}`, date: dt, title: "", items: [] }));
+    const days = rangeISO(nc.start, nc.end).map((dt, i) => ({ id: `${id}-d${i}`, date: dt, title: "", items: [], link: "" }));
     const into = nc.mode ? { mode: nc.mode, detail: "" } : null;
-    setItin((prev) => [...prev, { id, city: nc.name.trim(), color, into, days }]);
+    setItin((prev) => [...prev, { id, city: nc.name.trim(), color, into, days, link: "" }]);
     setOpenCity((o) => ({ ...o, [id]: true }));
     setNc({ name: "", start: "", end: "", mode: "" });
     setShowAddCity(false);
@@ -300,7 +300,7 @@ export default function App({ tripId, tripName, onBack }) {
     const last = c && c.days.length ? c.days[c.days.length - 1].date : "";
     const date = last ? addDaysISO(last, 1) : "";
     const id = cityId + "-d" + Math.random().toString(36).slice(2, 6);
-    setItin((prev) => prev.map((x) => x.id !== cityId ? x : { ...x, days: [...x.days, { id, date, title: "", items: [] }] }));
+    setItin((prev) => prev.map((x) => x.id !== cityId ? x : { ...x, days: [...x.days, { id, date, title: "", items: [], link: "" }] }));
     setEditing({ kind: "day", cityId, dayId: id });
   };
   const patchDayById = (cityId, dayId, patch) => setItin((prev) => prev.map((c) => c.id !== cityId ? c : { ...c, days: c.days.map((d) => d.id !== dayId ? d : { ...d, ...patch }) }));
@@ -423,7 +423,7 @@ export default function App({ tripId, tripName, onBack }) {
     const amt = parseFloat(String(ne.amount).replace(",", "."));
     if (!amt || amt <= 0) return;
     setExpenses((x) => [{ id: "e" + Date.now(), ...ne, amount: amt }, ...x]);
-    setNe({ cat: ne.cat, desc: "", amount: "", cur: ne.cur, date: ne.date, paidBy: ne.paidBy });
+    setNe({ cat: ne.cat, desc: "", amount: "", cur: ne.cur, date: ne.date, paidBy: ne.paidBy, link: "" });
   };
   const addPack = () => {
     if (!np.item.trim()) return;
@@ -432,12 +432,12 @@ export default function App({ tripId, tripName, onBack }) {
   };
   const addTask = () => {
     if (!ntask.trim()) return;
-    setTasks((x) => [...x, { id: "t" + Date.now(), text: ntask.trim(), done: false, notes: "", att: [] }]);
+    setTasks((x) => [...x, { id: "t" + Date.now(), text: ntask.trim(), done: false, notes: "", att: [], link: "" }]);
     setNtask("");
   };
   const addExp = () => {
     if (!nexp.trim()) return;
-    setExperiences((x) => [...x, { id: "x" + Date.now(), text: nexp.trim(), done: false, notes: "", att: [] }]);
+    setExperiences((x) => [...x, { id: "x" + Date.now(), text: nexp.trim(), done: false, notes: "", att: [], link: "" }]);
     setNexp("");
   };
 
@@ -948,7 +948,7 @@ export default function App({ tripId, tripName, onBack }) {
                 <span style={{ width: 8, height: 8, borderRadius: 99, background: EXP_COLORS[e.cat], flexShrink: 0 }} />
                 <div className="flex-1 min-w-0">
                   <div style={{ fontSize: 14, color: C.ink, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.desc || e.cat}</div>
-                  <div style={{ fontSize: 11, color: C.sub }}>{e.cat} · {dparts(e.date).dd} {dparts(e.date).mmm}{e.paidBy ? <> · <b style={{ color: PAYER_COLOR[e.paidBy] }}>{PAYER_LABEL[e.paidBy]}</b></> : ""}</div>
+                  <div style={{ fontSize: 11, color: C.sub }}>{e.cat} · {dparts(e.date).dd} {dparts(e.date).mmm}{e.paidBy ? <> · <b style={{ color: PAYER_COLOR[e.paidBy] }}>{PAYER_LABEL[e.paidBy]}</b></> : ""}{e.link ? <Link2 size={11} color={C.sub} style={{ display: "inline", verticalAlign: "-1px", marginLeft: 4 }} /> : null}</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <div style={{ ...mono, fontSize: 14, fontWeight: 700, color: C.ink }}>{eur(eurOf(e.amount, e.cur))}</div>
@@ -1183,8 +1183,9 @@ export default function App({ tripId, tripName, onBack }) {
                 <CheckBox on={it.done} color={accent} onClick={() => setItems((x) => x.map((y) => y.id === it.id ? { ...y, done: !y.done } : y))} />
                 <button onClick={() => { setAttErr(""); setEditing({ kind: "check", listType, id: it.id }); }} className="flex-1 text-left min-w-0">
                   <span style={{ fontSize: 14, color: it.done ? C.sub : C.ink, textDecoration: it.done ? "line-through" : "none" }}>{it.text}</span>
-                  {((it.att && it.att.length) || it.notes) && (
+                  {((it.att && it.att.length) || it.notes || it.link) && (
                     <div className="flex items-center gap-2.5 mt-1">
+                      {it.link && <Link2 size={12} color={C.sub} />}
                       {it.att && it.att.length > 0 && <span className="flex items-center gap-0.5" style={{ fontSize: 11, color: C.sub }}><Paperclip size={11} />{it.att.length}</span>}
                       {it.notes && <StickyNote size={12} color={C.sub} />}
                     </div>
@@ -1348,6 +1349,7 @@ export default function App({ tripId, tripName, onBack }) {
                     {city.into && <input value={city.into.detail || ""} onChange={(e) => patchCityById(editing.cityId, { into: { ...city.into, detail: e.target.value } })} placeholder="Detalle (p. ej. ~5h)" style={{ ...inp, flex: 1 }} />}
                   </div>
                 </Field>
+                {renderLinkField(city.link, (v) => patchCityById(editing.cityId, { link: v }))}
                 <div style={{ fontSize: 12, color: C.sub, marginBottom: 12 }}>Los días y actividades de esta parada se gestionan en la pantalla de Ruta.</div>
                 <button onClick={() => setConfirmDel({ name: city.city || "esta parada", where: "y todos sus días de la ruta", onConfirm: () => deleteCity(editing.cityId) })} className="w-full flex items-center justify-center gap-2 rounded-xl py-3" style={{ color: C.red, border: `1px solid ${C.line}`, fontSize: 13, fontWeight: 600 }}><Trash2 size={15} /> Eliminar parada y sus días</button>
               </>
@@ -1357,6 +1359,7 @@ export default function App({ tripId, tripName, onBack }) {
               <>
                 <Field label="Fecha"><input type="date" value={day.date || ""} onChange={(e) => patchDayById(editing.cityId, editing.dayId, { date: e.target.value })} style={{ ...inp, ...mono }} /></Field>
                 <Field label="Título del día"><input value={day.title || ""} onChange={(e) => patchDayById(editing.cityId, editing.dayId, { title: e.target.value })} placeholder="P. ej. Llegada y centro histórico" style={inp} /></Field>
+                {renderLinkField(day.link, (v) => patchDayById(editing.cityId, editing.dayId, { link: v }))}
                 <button onClick={() => setConfirmDel({ name: day.title || (day.date ? `el día ${dparts(day.date).dd} ${dparts(day.date).mmm}` : "este día"), where: "de la ruta", onConfirm: () => deleteDay(editing.cityId, editing.dayId) })} className="w-full flex items-center justify-center gap-2 rounded-xl py-3 mt-1" style={{ color: C.red, border: `1px solid ${C.line}`, fontSize: 13, fontWeight: 600 }}><Trash2 size={15} /> Eliminar día</button>
               </>
             )}
@@ -1369,7 +1372,8 @@ export default function App({ tripId, tripName, onBack }) {
                 <button onClick={() => patchCheck({ done: !chk.done })} className="w-full flex items-center gap-3 rounded-xl px-4 py-3 mb-3" style={{ background: C.card, border: `1px solid ${chk.done ? C.jade + "66" : C.line}` }}>
                   <CheckBox on={chk.done} /><span style={{ fontSize: 14, fontWeight: 600, color: C.ink }}>{editing.listType === "tasks" ? "Hecho" : "Vivido"}</span>
                 </button>
-                <Field label="Notas"><textarea value={chk.notes || ""} onChange={(e) => patchCheck({ notes: e.target.value })} rows={3} placeholder="Detalles, enlaces, recordatorios…" style={{ ...inp, resize: "none" }} /></Field>
+                {renderLinkField(chk.link, (v) => patchCheck({ link: v }))}
+                <Field label="Notas"><textarea value={chk.notes || ""} onChange={(e) => patchCheck({ notes: e.target.value })} rows={3} placeholder="Detalles, recordatorios…" style={{ ...inp, resize: "none" }} /></Field>
                 {renderAttachments(attList)}
                 <button onClick={() => setConfirmDel({ name: chk.text || "este elemento", where: editing.listType === "tasks" ? "de la checklist" : "de las experiencias", onConfirm: deleteCheck })} className="w-full flex items-center justify-center gap-2 rounded-xl py-3 mt-2" style={{ color: C.red, border: `1px solid ${C.line}`, fontSize: 13, fontWeight: 600 }}><Trash2 size={15} /> Eliminar</button>
               </>
@@ -1391,6 +1395,7 @@ export default function App({ tripId, tripName, onBack }) {
                 <Field label="¿Quién paga?" hint="Se usa para el balance de gastos entre Fa y Rubén.">
                   {renderPayerPicker(exp.paidBy || "", (v) => patchExpense({ paidBy: v }), false)}
                 </Field>
+                {renderLinkField(exp.link, (v) => patchExpense({ link: v }))}
                 <button onClick={() => setConfirmDel({ name: exp.desc || exp.cat, where: "de los gastos", onConfirm: deleteExpense })} className="w-full flex items-center justify-center gap-2 rounded-xl py-3 mt-2" style={{ color: C.red, border: `1px solid ${C.line}`, fontSize: 13, fontWeight: 600 }}><Trash2 size={15} /> Eliminar gasto</button>
               </>
             )}
