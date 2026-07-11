@@ -3,7 +3,7 @@ import {
   Plane, Train, Calendar, Wallet, Luggage, FileText, MapPin, Check, Plus,
   Trash2, ChevronDown, ChevronRight, ChevronLeft, Building2, Sparkles, AlertCircle,
   CreditCard, Wifi, Globe, RotateCcw, Paperclip, Download, StickyNote, X,
-  Pencil, Bus, Car, Ship, ListChecks, ClipboardList, Image as ImageIcon, GripVertical,
+  Pencil, Bus, Car, Ship, ListChecks, ClipboardList, Image as ImageIcon, GripVertical, Link2, ExternalLink,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { store } from "./store";
@@ -34,6 +34,7 @@ const dparts = (iso) => {
   return { dow: DOW[dt.getUTCDay()], dd: d, mmm: MON[m - 1] };
 };
 const eur = (n) => "€" + (Math.round((n || 0) * 100) / 100).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const normalizeUrl = (u) => { const s = (u || "").trim(); return s ? (/^https?:\/\//i.test(s) ? s : "https://" + s) : ""; };
 const todayISO = () => {
   const n = new Date();
   return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
@@ -204,11 +205,11 @@ export default function App({ tripId, tripName, onBack }) {
           const d = JSON.parse(r.value);
           if (typeof d.tripTitle === "string") setTripTitle(d.tripTitle);
           if (Array.isArray(d.itin)) {
-            const it = d.itin.map((c) => ({ into: null, color: PALETTE[0], days: [], ...c, days: (c.days || []).map((dd) => ({ title: "", items: [], ...dd, items: (dd.items || []).map((a) => ({ booked: false, notes: "", price: null, cur: "EUR", att: [], tEnd: "", paidBy: "", ...a })) })) }));
+            const it = d.itin.map((c) => ({ into: null, color: PALETTE[0], days: [], ...c, days: (c.days || []).map((dd) => ({ title: "", items: [], ...dd, items: (dd.items || []).map((a) => ({ booked: false, notes: "", price: null, cur: "EUR", att: [], tEnd: "", paidBy: "", link: "", ...a })) })) }));
             setItin(it);
             setOpenCity(Object.fromEntries(it.map((c) => [c.id, true])));
           }
-          if (Array.isArray(d.bookings)) setBookings(d.bookings.map((b) => ({ ref: "", notes: "", att: [], status: "pendiente", ...b })));
+          if (Array.isArray(d.bookings)) setBookings(d.bookings.map((b) => ({ ref: "", notes: "", att: [], status: "pendiente", link: "", ...b })));
           if (Array.isArray(d.packing)) setPacking(d.packing);
           if (Array.isArray(d.expenses)) setExpenses(d.expenses.map((e) => ({ paidBy: "fa", ...e })));
           if (d.docsChk) setDocsChk(d.docsChk);
@@ -322,7 +323,7 @@ export default function App({ tripId, tripName, onBack }) {
   const addActivity = (cityId, dayId) => {
     if (!na.x.trim()) return;
     const id = dayId + "-a" + Math.random().toString(36).slice(2, 7);
-    setItin((prev) => prev.map((c) => c.id !== cityId ? c : { ...c, days: c.days.map((d) => d.id !== dayId ? d : { ...d, items: [...d.items, { id, t: na.t || "12:00", tEnd: "", x: na.x.trim(), type: na.type, booked: false, notes: "", price: null, cur: "EUR", paidBy: "", att: [] }] }) }));
+    setItin((prev) => prev.map((c) => c.id !== cityId ? c : { ...c, days: c.days.map((d) => d.id !== dayId ? d : { ...d, items: [...d.items, { id, t: na.t || "12:00", tEnd: "", x: na.x.trim(), type: na.type, booked: false, notes: "", price: null, cur: "EUR", paidBy: "", link: "", att: [] }] }) }));
     setNa({ t: "12:00", x: "", type: "cultura" });
     setAddActFor(null);
   };
@@ -412,7 +413,7 @@ export default function App({ tripId, tripName, onBack }) {
   };
   const addBooking = () => {
     if (!nb.title.trim()) return;
-    setBookings((x) => [...x, { id: "b" + Date.now(), ...nb, status: "pendiente", ref: "", notes: "", att: [] }]);
+    setBookings((x) => [...x, { id: "b" + Date.now(), ...nb, status: "pendiente", ref: "", notes: "", link: "", att: [] }]);
     setNb({ type: nb.type, title: "", date: nb.date, detail: "" });
     setShowAddB(false);
   };
@@ -486,6 +487,18 @@ export default function App({ tripId, tripName, onBack }) {
   };
 
   /* selector de quién pagó (segmentado) */
+  const renderLinkField = (value, onChange) => (
+    <Field label="Enlace" hint="Web de la reserva, entradas, mapa… Queda como un icono, no en las notas.">
+      <div className="flex gap-2">
+        <input value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder="https://…" inputMode="url" style={{ ...inp, flex: 1 }} />
+        {value && value.trim() ? (
+          <a href={normalizeUrl(value)} target="_blank" rel="noopener noreferrer" className="rounded-lg px-3 flex items-center justify-center" style={{ background: C.ink, color: "#fff", flexShrink: 0, textDecoration: "none" }} title="Abrir enlace"><ExternalLink size={18} /></a>
+        ) : (
+          <div className="rounded-lg px-3 flex items-center justify-center" style={{ background: C.card, border: `1px solid ${C.line}`, color: C.line, flexShrink: 0 }}><Link2 size={18} /></div>
+        )}
+      </div>
+    </Field>
+  );
   const renderPayerPicker = (value, onChange, allowNone) => {
     const choices = allowNone ? [["", "Sin pagar"], ["fa", "Fa"], ["ruben", "Rubén"]] : [["fa", "Fa"], ["ruben", "Rubén"]];
     return (
@@ -768,10 +781,11 @@ export default function App({ tripId, tripName, onBack }) {
                                         <span style={{ fontSize: 13.5, color: a.x ? C.ink : C.sub }}>{a.x || "(sin título)"}</span>
                                         <span className="ml-2 inline-block rounded px-1.5" style={{ fontSize: 9.5, fontWeight: 700, color: ty.c, background: ty.c + "1A", textTransform: "uppercase", letterSpacing: 0.4, verticalAlign: "middle" }}>{ty.l}</span>
                                       </div>
-                                      {(a.price > 0 || (a.att && a.att.length) || a.notes || a.paidBy) && (
+                                      {(a.price > 0 || (a.att && a.att.length) || a.notes || a.paidBy || a.link) && (
                                         <div className="flex items-center gap-2.5 mt-1">
                                           {a.price > 0 && <span style={{ ...mono, fontSize: 11, color: C.redDeep, fontWeight: 700 }}>{a.cur === "CNY" ? `¥${a.price}` : eur(a.price)}</span>}
                                           {a.paidBy && <span style={{ fontSize: 10.5, fontWeight: 700, color: PAYER_COLOR[a.paidBy] }}>{PAYER_LABEL[a.paidBy]}</span>}
+                                          {a.link && <Link2 size={12} color={C.sub} />}
                                           {a.att && a.att.length > 0 && <span className="flex items-center gap-0.5" style={{ fontSize: 11, color: C.sub }}><Paperclip size={11} />{a.att.length}</span>}
                                           {a.notes && <StickyNote size={12} color={C.sub} />}
                                         </div>
@@ -1033,9 +1047,10 @@ export default function App({ tripId, tripName, onBack }) {
                       <button onClick={() => { setAttErr(""); setEditing({ kind: "booking", id: b.id }); }} className="flex-1 text-left min-w-0">
                         <div style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>{b.title}</div>
                         <div style={{ fontSize: 11.5, color: C.sub }}>{b.date ? `${dparts(b.date).dd} ${dparts(b.date).mmm} · ` : ""}{b.detail}</div>
-                        {(b.ref || (b.att && b.att.length) || b.notes) && (
+                        {(b.ref || (b.att && b.att.length) || b.notes || b.link) && (
                           <div className="flex items-center gap-2.5 mt-1">
                             {b.ref && <span style={{ ...mono, fontSize: 11, color: C.redDeep, fontWeight: 700 }}>{b.ref}</span>}
+                            {b.link && <Link2 size={12} color={C.sub} />}
                             {b.att && b.att.length > 0 && <span className="flex items-center gap-0.5" style={{ fontSize: 11, color: C.sub }}><Paperclip size={11} />{b.att.length}</span>}
                             {b.notes && <StickyNote size={12} color={C.sub} />}
                           </div>
@@ -1291,6 +1306,7 @@ export default function App({ tripId, tripName, onBack }) {
                 <Field label="¿Quién la pagó?" hint="Se usa para el balance de gastos entre Fa y Rubén.">
                   {renderPayerPicker(act.paidBy || "", (v) => patchAct({ paidBy: v }), true)}
                 </Field>
+                {renderLinkField(act.link, (v) => patchAct({ link: v }))}
                 <Field label="Notas"><textarea value={act.notes} onChange={(e) => patchAct({ notes: e.target.value })} rows={3} placeholder="Entradas, horarios, direcciones, ideas…" style={{ ...inp, resize: "none" }} /></Field>
                 {renderAttachments(attList)}
                 <button onClick={() => setConfirmDel({ name: act.x || "esta actividad", where: "de la ruta", onConfirm: deleteActivity })} className="w-full flex items-center justify-center gap-2 rounded-xl py-3 mt-2" style={{ color: C.red, border: `1px solid ${C.line}`, fontSize: 13, fontWeight: 600 }}><Trash2 size={15} /> Eliminar actividad</button>
@@ -1309,6 +1325,7 @@ export default function App({ tripId, tripName, onBack }) {
                   <CheckBox on={bk.status === "confirmado"} /><span style={{ fontSize: 14, fontWeight: 600, color: C.ink }}>Confirmada</span>
                 </button>
                 <Field label="Localizador / referencia"><input value={bk.ref || ""} onChange={(e) => patchBk({ ref: e.target.value })} placeholder="Código de reserva" style={{ ...inp, ...mono }} /></Field>
+                {renderLinkField(bk.link, (v) => patchBk({ link: v }))}
                 <Field label="Notas"><textarea value={bk.notes || ""} onChange={(e) => patchBk({ notes: e.target.value })} rows={3} placeholder="Detalles de la reserva…" style={{ ...inp, resize: "none" }} /></Field>
                 {renderAttachments(attList)}
                 <button onClick={() => setConfirmDel({ name: bk.title || "esta reserva", where: "de las reservas", onConfirm: deleteBooking })} className="w-full flex items-center justify-center gap-2 rounded-xl py-3 mt-2" style={{ color: C.red, border: `1px solid ${C.line}`, fontSize: 13, fontWeight: 600 }}><Trash2 size={15} /> Eliminar reserva</button>
