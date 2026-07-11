@@ -472,6 +472,10 @@ export default function App({ tripId, tripName, onBack }) {
     (editing.listType === "tasks" ? setTasks : setExperiences)((prev) => prev.filter((x) => x.id !== editing.id));
     setEditing(null);
   };
+  const curExpense = () => (editing && editing.kind === "expense" ? expenses.find((e) => e.id === editing.id) : null) || null;
+  const patchExpenseById = (id, patch) => setExpenses((prev) => prev.map((e) => e.id !== id ? e : { ...e, ...patch }));
+  const patchExpense = (patch) => editing && patchExpenseById(editing.id, patch);
+  const deleteExpense = () => { setExpenses((prev) => prev.filter((e) => e.id !== editing.id)); setEditing(null); };
 
   const resetAll = async () => {
     Object.keys(attMap).forEach((id) => { try { store.delete(ATT_PREFIX + id); } catch (e) {} });
@@ -498,7 +502,7 @@ export default function App({ tripId, tripName, onBack }) {
   };
 
   /* ---- derivados ---- */
-  const eurOf = (amount, cur) => (cur === "CNY" ? (amount || 0) / (rate || 1) : (amount || 0));
+  const eurOf = (amount, cur) => { const n = parseFloat(String(amount).replace(",", ".")) || 0; return cur === "CNY" ? n / (rate || 1) : n; };
   const allDays = itin.flatMap((c) => c.days);
   const allActs = itin.flatMap((c) => c.days.flatMap((d) => d.items));
   const actsBooked = allActs.filter((a) => a.booked).length;
@@ -926,15 +930,18 @@ export default function App({ tripId, tripName, onBack }) {
         <div className="flex flex-col gap-2 mb-4">
           {expenses.map((e) => (
             <div key={e.id} className="flex items-center gap-3 rounded-xl px-4 py-3" style={{ background: C.card, border: `1px solid ${C.line}` }}>
-              <span style={{ width: 8, height: 8, borderRadius: 99, background: EXP_COLORS[e.cat], flexShrink: 0 }} />
-              <div className="flex-1 min-w-0">
-                <div style={{ fontSize: 14, color: C.ink, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.desc || e.cat}</div>
-                <div style={{ fontSize: 11, color: C.sub }}>{e.cat} · {dparts(e.date).dd} {dparts(e.date).mmm}{e.paidBy ? <> · <b style={{ color: PAYER_COLOR[e.paidBy] }}>{PAYER_LABEL[e.paidBy]}</b></> : ""}</div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ ...mono, fontSize: 14, fontWeight: 700, color: C.ink }}>{eur(eurOf(e.amount, e.cur))}</div>
-                {e.cur === "CNY" && <div style={{ ...mono, fontSize: 10, color: C.sub }}>¥{e.amount}</div>}
-              </div>
+              <button onClick={() => setEditing({ kind: "expense", id: e.id })} className="flex items-center gap-3 flex-1 min-w-0 text-left">
+                <span style={{ width: 8, height: 8, borderRadius: 99, background: EXP_COLORS[e.cat], flexShrink: 0 }} />
+                <div className="flex-1 min-w-0">
+                  <div style={{ fontSize: 14, color: C.ink, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.desc || e.cat}</div>
+                  <div style={{ fontSize: 11, color: C.sub }}>{e.cat} · {dparts(e.date).dd} {dparts(e.date).mmm}{e.paidBy ? <> · <b style={{ color: PAYER_COLOR[e.paidBy] }}>{PAYER_LABEL[e.paidBy]}</b></> : ""}</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ ...mono, fontSize: 14, fontWeight: 700, color: C.ink }}>{eur(eurOf(e.amount, e.cur))}</div>
+                  {e.cur === "CNY" && <div style={{ ...mono, fontSize: 10, color: C.sub }}>¥{e.amount}</div>}
+                </div>
+                <ChevronRight size={16} color={C.line} style={{ flexShrink: 0 }} />
+              </button>
               <button onClick={() => setConfirmDel({ name: e.desc || e.cat, where: "de los gastos", onConfirm: () => setExpenses((x) => x.filter((y) => y.id !== e.id)) })}><Trash2 size={16} color={C.sub} /></button>
             </div>
           ))}
@@ -1234,12 +1241,13 @@ export default function App({ tripId, tripName, onBack }) {
     if (!editing) return null;
     const k = editing.kind;
     let title = "", subtitle = "", attList = [];
-    let act = null, bk = null, city = null, day = null, chk = null;
+    let act = null, bk = null, city = null, day = null, chk = null, exp = null;
     if (k === "act") { act = curAct(); if (!act) return null; const dd = curDayForAct(); subtitle = dd ? `${dd.date ? `${dparts(dd.date).dow} ${dparts(dd.date).dd} ${dparts(dd.date).mmm} · ` : ""}${dd.title || "Día"}` : ""; title = "Detalle de actividad"; attList = act.att || []; }
     else if (k === "booking") { bk = curBk(); if (!bk) return null; subtitle = `Reserva · ${bk.type}`; title = "Detalle de reserva"; attList = bk.att || []; }
     else if (k === "city") { city = curCity(); if (!city) return null; subtitle = "Parada"; title = "Editar parada"; }
     else if (k === "day") { city = curCity(); day = curDayObj(); if (!day) return null; subtitle = city ? city.city : "Día"; title = "Editar día"; }
     else if (k === "check") { chk = curCheck(); if (!chk) return null; subtitle = editing.listType === "tasks" ? "Gestión" : "Experiencia"; title = "Detalle"; attList = chk.att || []; }
+    else if (k === "expense") { exp = curExpense(); if (!exp) return null; subtitle = "Gasto manual"; title = "Editar gasto"; }
 
     const overlay = { position: "fixed", inset: 0, background: "rgba(20,16,12,0.45)", zIndex: 50, display: "flex", alignItems: "flex-end", justifyContent: "center" };
     const sheet = { background: C.paper, width: "100%", maxWidth: 480, maxHeight: "90vh", overflowY: "auto", borderTopLeftRadius: 20, borderTopRightRadius: 20 };
@@ -1347,6 +1355,26 @@ export default function App({ tripId, tripName, onBack }) {
                 <Field label="Notas"><textarea value={chk.notes || ""} onChange={(e) => patchCheck({ notes: e.target.value })} rows={3} placeholder="Detalles, enlaces, recordatorios…" style={{ ...inp, resize: "none" }} /></Field>
                 {renderAttachments(attList)}
                 <button onClick={() => setConfirmDel({ name: chk.text || "este elemento", where: editing.listType === "tasks" ? "de la checklist" : "de las experiencias", onConfirm: deleteCheck })} className="w-full flex items-center justify-center gap-2 rounded-xl py-3 mt-2" style={{ color: C.red, border: `1px solid ${C.line}`, fontSize: 13, fontWeight: 600 }}><Trash2 size={15} /> Eliminar</button>
+              </>
+            )}
+
+            {k === "expense" && (
+              <>
+                <div className="flex gap-2">
+                  <div className="flex-1"><Field label="Categoría"><select value={exp.cat} onChange={(e) => patchExpense({ cat: e.target.value })} style={inp}>{EXP_CATS.map((c) => <option key={c}>{c}</option>)}</select></Field></div>
+                  <div style={{ width: 140 }}><Field label="Fecha"><input type="date" value={exp.date || ""} onChange={(e) => patchExpense({ date: e.target.value })} style={{ ...inp, ...mono, fontSize: 12 }} /></Field></div>
+                </div>
+                <Field label="Descripción"><input value={exp.desc || ""} onChange={(e) => patchExpense({ desc: e.target.value })} placeholder="Descripción" style={inp} /></Field>
+                <Field label="Importe">
+                  <div className="flex gap-2">
+                    <input value={exp.amount} onChange={(e) => patchExpense({ amount: e.target.value })} placeholder="0,00" inputMode="decimal" style={{ ...inp, flex: 1, ...mono }} />
+                    <select value={exp.cur} onChange={(e) => patchExpense({ cur: e.target.value })} style={{ ...inp, width: "auto" }}><option value="EUR">€ EUR</option><option value="CNY">¥ CNY</option></select>
+                  </div>
+                </Field>
+                <Field label="¿Quién paga?" hint="Se usa para el balance de gastos entre Fa y Rubén.">
+                  {renderPayerPicker(exp.paidBy || "", (v) => patchExpense({ paidBy: v }), false)}
+                </Field>
+                <button onClick={() => setConfirmDel({ name: exp.desc || exp.cat, where: "de los gastos", onConfirm: deleteExpense })} className="w-full flex items-center justify-center gap-2 rounded-xl py-3 mt-2" style={{ color: C.red, border: `1px solid ${C.line}`, fontSize: 13, fontWeight: 600 }}><Trash2 size={15} /> Eliminar gasto</button>
               </>
             )}
           </div>
