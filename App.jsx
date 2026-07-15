@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   Plane, Train, Calendar, Wallet, Luggage, FileText, MapPin, Check, Plus,
   Trash2, ChevronDown, ChevronRight, ChevronLeft, Building2, Sparkles, AlertCircle,
-  CreditCard, Wifi, Globe, RotateCcw, Paperclip, Download, StickyNote, X,
+  CreditCard, Wifi, Globe, Paperclip, Download, StickyNote, X,
   Pencil, Bus, Car, Ship, ListChecks, ClipboardList, Image as ImageIcon, GripVertical, Link2, ExternalLink, BookOpen, Menu,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
@@ -170,7 +170,6 @@ export default function App({ tripId, tripName, onBack }) {
   const [attErr, setAttErr] = useState("");
   const [lightbox, setLightbox] = useState(null);
   const [hydrated, setHydrated] = useState(false);
-  const [confirmReset, setConfirmReset] = useState(false);
   // formularios
   const [nc, setNc] = useState({ name: "", start: "", end: "", mode: "" });
   const [showAddCity, setShowAddCity] = useState(false);
@@ -497,14 +496,6 @@ export default function App({ tripId, tripName, onBack }) {
     if (e) (e.att || []).forEach(purgeAtt);
     setDiary((prev) => prev.filter((x) => x.id !== editing.id));
     setEditing(null);
-  };
-
-  const resetAll = async () => {
-    Object.keys(attMap).forEach((id) => { try { store.delete(ATT_PREFIX + id); } catch (e) {} });
-    setItin([]); setBookings([]); setOpenCity({}); setPacking(DEFAULT_PACKING);
-    setExpenses([]); setDocsChk({}); setRate(7.7); setBudget(0); setAttMap({}); setTripTitle("China");
-    setTasks(DEFAULT_TASKS); setExperiences(DEFAULT_EXPERIENCES); setDiary([]); setConfirmReset(false);
-    try { await store.delete(STORAGE_KEY); } catch (e) {}
   };
 
   /* selector de quién pagó (segmentado) */
@@ -861,20 +852,6 @@ export default function App({ tripId, tripName, onBack }) {
           </div>
         </div>
       </Card>
-
-      <div style={{ textAlign: "center", marginTop: 18 }}>
-        {!confirmReset ? (
-          <button onClick={() => setConfirmReset(true)} className="inline-flex items-center gap-1.5" style={{ color: C.sub, fontSize: 12 }}>
-            <RotateCcw size={13} /> Reiniciar datos guardados
-          </button>
-        ) : (
-          <div className="inline-flex items-center gap-3">
-            <span style={{ color: C.sub, fontSize: 12 }}>¿Borrar todo?</span>
-            <button onClick={resetAll} style={{ color: C.red, fontSize: 12, fontWeight: 700 }}>Sí, reiniciar</button>
-            <button onClick={() => setConfirmReset(false)} style={{ color: C.sub, fontSize: 12 }}>Cancelar</button>
-          </div>
-        )}
-      </div>
     </div>
   );
 
