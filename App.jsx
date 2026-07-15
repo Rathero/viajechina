@@ -3,7 +3,7 @@ import {
   Plane, Train, Calendar, Wallet, Luggage, FileText, MapPin, Check, Plus,
   Trash2, ChevronDown, ChevronRight, ChevronLeft, Building2, Sparkles, AlertCircle,
   CreditCard, Wifi, Globe, Paperclip, Download, StickyNote, X,
-  Pencil, Bus, Car, Ship, ListChecks, ClipboardList, Image as ImageIcon, GripVertical, Link2, ExternalLink, BookOpen, Menu,
+  Pencil, Bus, Car, Ship, ListChecks, ClipboardList, Image as ImageIcon, GripVertical, Link2, ExternalLink, BookOpen, Menu, ChevronsDownUp, ChevronsUpDown,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { store } from "./store";
@@ -165,6 +165,7 @@ export default function App({ tripId, tripName, onBack }) {
   const [rate, setRate] = useState(7.7);
   const [budget, setBudget] = useState(0);
   const [openCity, setOpenCity] = useState({});
+  const [openDay, setOpenDay] = useState({});
   const [attMap, setAttMap] = useState({});
   const [editing, setEditing] = useState(null);
   const [attErr, setAttErr] = useState("");
@@ -193,6 +194,7 @@ export default function App({ tripId, tripName, onBack }) {
   const dragSess = useRef(null);
   const dragPos = useRef({ x: 0, y: 0 });
   const saveT = useRef(null);
+  const skipTodayScroll = useRef(false);
 
   /* cargar */
   useEffect(() => {
@@ -206,6 +208,10 @@ export default function App({ tripId, tripName, onBack }) {
             const it = d.itin.map((c) => ({ into: null, color: PALETTE[0], days: [], link: "", ...c, days: (c.days || []).map((dd) => ({ title: "", items: [], link: "", ...dd, items: (dd.items || []).map((a) => ({ booked: false, notes: "", price: null, cur: "EUR", att: [], tEnd: "", paidBy: "", link: "", ...a })) })) }));
             setItin(it);
             setOpenCity(Object.fromEntries(it.map((c) => [c.id, true])));
+            const today = todayISO();
+            const dayDefaults = {};
+            it.forEach((c) => c.days.forEach((dd) => { dayDefaults[dd.id] = !(dd.date && dd.date < today); }));
+            setOpenDay(dayDefaults);
           }
           if (Array.isArray(d.bookings)) setBookings(d.bookings.map((b) => ({ ref: "", notes: "", att: [], status: "pendiente", link: "", ...b })));
           if (Array.isArray(d.packing)) setPacking(d.packing);
@@ -240,6 +246,26 @@ export default function App({ tripId, tripName, onBack }) {
       try { await store.set(STORAGE_KEY, JSON.stringify({ tripTitle, itin, bookings, packing, expenses, docsChk, rate, budget, tasks, experiences, diary })); } catch (e) {}
     }, 400);
   }, [tripTitle, itin, bookings, packing, expenses, docsChk, rate, budget, tasks, experiences, diary, hydrated]);
+
+  /* al entrar en la Ruta, ir automáticamente al día de hoy (o al más próximo) */
+  useEffect(() => {
+    if (tab !== "itinerario" || !hydrated) return;
+    if (skipTodayScroll.current) { skipTodayScroll.current = false; return; }
+    const all = itin.flatMap((c) => c.days.filter((d) => d.date).map((d) => ({ cityId: c.id, dayId: d.id, date: d.date })));
+    if (!all.length) return;
+    const t = todayISO();
+    let target = all.find((x) => x.date === t)
+      || all.filter((x) => x.date >= t).sort((a, b) => a.date.localeCompare(b.date))[0]
+      || all.slice().sort((a, b) => a.date.localeCompare(b.date)).pop();
+    if (!target) return;
+    setOpenCity((o) => ({ ...o, [target.cityId]: true }));
+    setOpenDay((o) => ({ ...o, [target.dayId]: true }));
+    const tm = setTimeout(() => {
+      const el = document.getElementById("day-" + target.dayId);
+      if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 66, behavior: "smooth" });
+    }, 140);
+    return () => clearTimeout(tm);
+  }, [tab, hydrated]);
 
   /* ---- adjuntos ---- */
   const purgeAtt = (attId) => {
@@ -284,6 +310,7 @@ export default function App({ tripId, tripName, onBack }) {
     const into = nc.mode ? { mode: nc.mode, detail: "" } : null;
     setItin((prev) => [...prev, { id, city: nc.name.trim(), color, into, days, link: "" }]);
     setOpenCity((o) => ({ ...o, [id]: true }));
+    setOpenDay((o) => { const m = { ...o }; days.forEach((d) => { m[d.id] = true; }); return m; });
     setNc({ name: "", start: "", end: "", mode: "" });
     setShowAddCity(false);
   };
@@ -302,6 +329,7 @@ export default function App({ tripId, tripName, onBack }) {
     const date = last ? addDaysISO(last, 1) : "";
     const id = cityId + "-d" + Math.random().toString(36).slice(2, 6);
     setItin((prev) => prev.map((x) => x.id !== cityId ? x : { ...x, days: [...x.days, { id, date, title: "", items: [], link: "" }] }));
+    setOpenDay((o) => ({ ...o, [id]: true }));
     setEditing({ kind: "day", cityId, dayId: id });
   };
   const patchDayById = (cityId, dayId, patch) => setItin((prev) => prev.map((c) => c.id !== cityId ? c : { ...c, days: c.days.map((d) => d.id !== dayId ? d : { ...d, ...patch }) }));
@@ -567,6 +595,7 @@ export default function App({ tripId, tripName, onBack }) {
   })();
 
   const goToCity = (cityId) => {
+    skipTodayScroll.current = true; // no sobrescribir con el salto automático a hoy
     setOpenCity((o) => ({ ...o, [cityId]: true }));
     setTab("itinerario");
     setTimeout(() => { const el = document.getElementById("city-" + cityId); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 70);
@@ -856,16 +885,30 @@ export default function App({ tripId, tripName, onBack }) {
   );
 
   /* ============ ruta ============ */
-  const renderRuta = () => (
+  const isPastDay = (iso) => iso && iso < todayISO();
+  const isDayOpen = (d) => (openDay[d.id] !== undefined ? openDay[d.id] : !isPastDay(d.date));
+  const toggleDay = (dayId, currentlyOpen) => setOpenDay((o) => ({ ...o, [dayId]: !currentlyOpen }));
+  const setAllDaysOpen = (val) => setOpenDay(() => { const m = {}; itin.forEach((c) => c.days.forEach((d) => { m[d.id] = val; })); return m; });
+  const renderRuta = () => {
+    const anyDayOpen = itin.some((c) => c.days.some((d) => isDayOpen(d)));
+    const hasDays = itin.some((c) => c.days.length);
+    return (
     <div className="px-4 pb-6">
       <div className="px-1 pt-1 pb-3 flex items-end justify-between">
         <div>
           <div style={{ fontSize: 22, fontWeight: 800, color: C.ink }}>Ruta</div>
           <div style={{ color: C.sub, fontSize: 13 }}>Añade paradas, días y actividades a tu ritmo.</div>
         </div>
-        <button onClick={() => setShowAddCity((v) => !v)} className="flex items-center gap-1 rounded-lg px-3 py-2" style={{ background: C.red, color: "#fff", fontSize: 13, fontWeight: 600 }}>
-          <Plus size={16} /> Parada
-        </button>
+        <div className="flex items-center gap-2">
+          {hasDays && (
+            <button onClick={() => setAllDaysOpen(!anyDayOpen)} aria-label={anyDayOpen ? "Colapsar todos los días" : "Expandir todos los días"} title={anyDayOpen ? "Colapsar todos los días" : "Expandir todos los días"} className="flex items-center justify-center rounded-lg" style={{ width: 38, height: 38, background: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
+              {anyDayOpen ? <ChevronsDownUp size={18} /> : <ChevronsUpDown size={18} />}
+            </button>
+          )}
+          <button onClick={() => setShowAddCity((v) => !v)} className="flex items-center gap-1 rounded-lg px-3 py-2" style={{ background: C.red, color: "#fff", fontSize: 13, fontWeight: 600 }}>
+            <Plus size={16} /> Parada
+          </button>
+        </div>
       </div>
 
       {showAddCity && (
@@ -932,19 +975,23 @@ export default function App({ tripId, tripName, onBack }) {
                 <>
                   {s.days.map((d) => {
                     const p = d.date ? dparts(d.date) : null;
+                    const dOpen = isDayOpen(d);
                     return (
-                      <div key={d.id} data-day={d.id} data-city={s.id} className="rounded-xl mb-2" style={{ background: C.card, border: `1px solid ${drag && drag.target && drag.target.dayId === d.id ? s.color : C.line}`, boxShadow: drag && drag.target && drag.target.dayId === d.id ? `0 0 0 2px ${s.color}55` : "none", transition: "box-shadow 0.1s" }}>
-                        <div className="flex items-center gap-3 px-4 pt-3">
-                          <div className="flex flex-col items-center justify-center rounded-lg" style={{ background: C.paper, width: 44, height: 44, flexShrink: 0 }}>
+                      <div key={d.id} id={"day-" + d.id} data-day={d.id} data-city={s.id} className="rounded-xl mb-2" style={{ background: C.card, border: `1px solid ${drag && drag.target && drag.target.dayId === d.id ? s.color : C.line}`, boxShadow: drag && drag.target && drag.target.dayId === d.id ? `0 0 0 2px ${s.color}55` : "none", transition: "box-shadow 0.1s" }}>
+                        <div className={"flex items-center gap-3 px-4 pt-3" + (dOpen ? "" : " pb-3")}>
+                          <div className="flex flex-col items-center justify-center rounded-lg" style={{ background: C.paper, width: 44, height: 44, flexShrink: 0, opacity: (!dOpen && isPastDay(d.date)) ? 0.6 : 1 }}>
                             <span style={{ ...mono, fontSize: p ? 16 : 18, fontWeight: 800, color: p ? C.ink : C.sub, lineHeight: 1 }}>{p ? p.dd : "—"}</span>
                             {p && <span style={{ fontSize: 9.5, color: C.sub, textTransform: "uppercase" }}>{p.mmm}</span>}
                           </div>
-                          <button onClick={() => setEditing({ kind: "day", cityId: s.id, dayId: d.id })} className="flex-1 text-left">
+                          <button onClick={() => toggleDay(d.id, dOpen)} className="flex-1 text-left min-w-0">
                             <div style={{ fontSize: 10.5, color: C.sub, textTransform: "uppercase", letterSpacing: 1, fontWeight: 600 }}>{p ? p.dow : "Sin fecha"}</div>
                             <div className="flex items-center gap-1.5" style={{ fontWeight: 700, color: d.title ? C.ink : C.sub, fontSize: 15 }}>{d.title || "Sin título"}{d.link && <Link2 size={12} color={C.sub} />}</div>
+                            {!dOpen && d.items.length > 0 && <div style={{ fontSize: 11, color: C.sub, marginTop: 1 }}>{d.items.length} actividad{d.items.length === 1 ? "" : "es"}</div>}
                           </button>
                           <button onClick={() => setEditing({ kind: "day", cityId: s.id, dayId: d.id })} className="p-1"><Pencil size={14} color={C.sub} /></button>
+                          <button onClick={() => toggleDay(d.id, dOpen)} className="p-1" aria-label={dOpen ? "Colapsar día" : "Abrir día"}>{dOpen ? <ChevronDown size={17} color={C.sub} /> : <ChevronRight size={17} color={C.sub} />}</button>
                         </div>
+                        {dOpen && (
                         <div className="px-4 py-3 flex flex-col gap-2.5">
                           {d.items.map((a) => {
                             const ty = TYPE[a.type];
@@ -1009,6 +1056,7 @@ export default function App({ tripId, tripName, onBack }) {
                             </button>
                           )}
                         </div>
+                        )}
                       </div>
                     );
                   })}
@@ -1022,7 +1070,8 @@ export default function App({ tripId, tripName, onBack }) {
         );
       })}
     </div>
-  );
+    );
+  };
 
   /* ============ gastos ============ */
   const renderGastos = () => (
