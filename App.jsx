@@ -3,7 +3,7 @@ import {
   Plane, Train, Calendar, Wallet, Luggage, FileText, MapPin, Check, Plus,
   Trash2, ChevronDown, ChevronRight, ChevronLeft, Building2, Sparkles, AlertCircle,
   CreditCard, Wifi, Globe, RotateCcw, Paperclip, Download, StickyNote, X,
-  Pencil, Bus, Car, Ship, ListChecks, ClipboardList, Image as ImageIcon, GripVertical, Link2, ExternalLink, BookOpen,
+  Pencil, Bus, Car, Ship, ListChecks, ClipboardList, Image as ImageIcon, GripVertical, Link2, ExternalLink, BookOpen, Menu,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { store } from "./store";
@@ -141,12 +141,6 @@ const Field = ({ label, hint, children }) => (
     {hint && <div style={{ fontSize: 11.5, color: C.sub, marginTop: 5 }}>{hint}</div>}
   </div>
 );
-const NavBtn = ({ active, onClick, icon: Ic, label }) => (
-  <button onClick={onClick} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, flex: "1 1 0%", minWidth: 0, padding: "8px 2px", color: active ? C.red : C.sub }}>
-    <Ic size={19} strokeWidth={active ? 2.4 : 1.8} />
-    <span style={{ fontSize: 10, fontWeight: active ? 700 : 500, whiteSpace: "nowrap" }}>{label}</span>
-  </button>
-);
 const Empty = ({ icon: Ic, title, text }) => (
   <div className="flex flex-col items-center text-center px-6 py-10">
     <div className="flex items-center justify-center rounded-2xl mb-3" style={{ width: 56, height: 56, background: C.card, border: `1px solid ${C.line}` }}>
@@ -193,6 +187,7 @@ export default function App({ tripId, tripName, onBack }) {
   const [diary, setDiary] = useState([]);
   const [nd, setNd] = useState({ date: todayISO(), title: "", text: "" });
   const [showAddDiary, setShowAddDiary] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [confirmDel, setConfirmDel] = useState(null);
   const [confirmExport, setConfirmExport] = useState(false);
   const [drag, setDrag] = useState(null); // arrastrar actividades entre días
@@ -1715,22 +1710,55 @@ export default function App({ tripId, tripName, onBack }) {
     { id: "docs", icon: AlertCircle, label: "Info", render: renderInfo },
   ];
   const active = TABS.find((t) => t.id === tab);
+  const ActiveIcon = active.icon;
 
   return (
     <div style={{ background: C.paper, minHeight: "100vh", maxWidth: 480, margin: "0 auto", fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif", color: C.ink }}>
-      {onBack && (
-        <div style={{ padding: "12px 16px 0" }}>
-          <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4, color: C.sub, fontSize: 13, fontWeight: 600 }}>
-            <ChevronLeft size={18} /> Mis viajes
+      <div style={{ position: "sticky", top: 0, zIndex: 30, background: "rgba(245,241,234,0.92)", backdropFilter: "blur(8px)", borderBottom: `1px solid ${C.line}` }}>
+        <div className="flex items-center gap-3" style={{ padding: "10px 14px" }}>
+          <button onClick={() => setDrawerOpen(true)} aria-label="Abrir menú" className="flex items-center justify-center" style={{ width: 40, height: 40, borderRadius: 10, background: C.card, border: `1px solid ${C.line}`, color: C.ink, flexShrink: 0 }}>
+            <Menu size={20} />
           </button>
-        </div>
-      )}
-      <div style={{ paddingTop: onBack ? 8 : 16, paddingBottom: 76 }}>{active.render()}</div>
-      <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, maxWidth: 480, margin: "0 auto", background: "rgba(245,241,234,0.92)", backdropFilter: "blur(8px)", borderTop: `1px solid ${C.line}`, zIndex: 40 }}>
-        <div style={{ display: "flex", flexWrap: "nowrap" }}>
-          {TABS.map((t) => <NavBtn key={t.id} active={tab === t.id} onClick={() => setTab(t.id)} icon={t.icon} label={t.label} />)}
+          <div className="flex items-center gap-2 min-w-0">
+            <ActiveIcon size={18} style={{ color: C.red }} />
+            <span style={{ fontWeight: 800, fontSize: 17, color: C.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{active.label}</span>
+          </div>
+          {onBack && (
+            <button onClick={onBack} className="flex items-center gap-1" style={{ marginLeft: "auto", color: C.sub, fontSize: 13, fontWeight: 600, flexShrink: 0 }}>
+              <ChevronLeft size={16} /> Mis viajes
+            </button>
+          )}
         </div>
       </div>
+
+      <div style={{ paddingTop: 12, paddingBottom: 28 }}>{active.render()}</div>
+
+      {drawerOpen && (
+        <div onClick={() => setDrawerOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 45, background: "rgba(20,16,12,0.45)" }}>
+          <style>{"@keyframes drawerIn{from{transform:translateX(-100%)}to{transform:translateX(0)}}"}</style>
+          <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: 270, maxWidth: "84%", background: C.paper, borderRight: `1px solid ${C.line}`, boxShadow: "2px 0 28px rgba(20,16,12,0.20)", display: "flex", flexDirection: "column", overflowY: "auto", animation: "drawerIn 0.18s ease-out" }}>
+            <div className="flex items-start justify-between" style={{ padding: "18px 16px 14px", borderBottom: `1px solid ${C.line}` }}>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5" style={{ color: "#B0703A", ...mono, fontSize: 11, letterSpacing: 2 }}><Plane size={12} /> MI VIAJE</div>
+                <div style={{ fontSize: 19, fontWeight: 800, color: C.ink, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tripTitle}</div>
+              </div>
+              <button onClick={() => setDrawerOpen(false)} aria-label="Cerrar menú" className="rounded-full p-1.5" style={{ background: C.card, border: `1px solid ${C.line}`, flexShrink: 0 }}><X size={16} color={C.sub} /></button>
+            </div>
+            <div style={{ padding: 10 }}>
+              {TABS.map((t) => {
+                const on = tab === t.id;
+                const Ic = t.icon;
+                return (
+                  <button key={t.id} onClick={() => { setTab(t.id); setDrawerOpen(false); }} className="w-full flex items-center gap-3" style={{ padding: "11px 12px", borderRadius: 10, marginBottom: 2, background: on ? C.red : "transparent", color: on ? "#fff" : C.ink, textAlign: "left" }}>
+                    <Ic size={19} strokeWidth={on ? 2.4 : 1.9} />
+                    <span style={{ fontSize: 15, fontWeight: on ? 700 : 600 }}>{t.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
       {renderModal()}
       {lightbox && (
         <div onClick={() => setLightbox(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
