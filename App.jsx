@@ -3,7 +3,7 @@ import {
   Plane, Train, Calendar, Wallet, Luggage, FileText, MapPin, Check, Plus,
   Trash2, ChevronDown, ChevronRight, ChevronLeft, Building2, Sparkles, AlertCircle,
   CreditCard, Wifi, Globe, RotateCcw, Paperclip, Download, StickyNote, X,
-  Pencil, Bus, Car, Ship, ListChecks, ClipboardList, Image as ImageIcon, GripVertical, Link2, ExternalLink,
+  Pencil, Bus, Car, Ship, ListChecks, ClipboardList, Image as ImageIcon, GripVertical, Link2, ExternalLink, BookOpen,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { store } from "./store";
@@ -190,6 +190,9 @@ export default function App({ tripId, tripName, onBack }) {
   const [experiences, setExperiences] = useState(DEFAULT_EXPERIENCES);
   const [ntask, setNtask] = useState("");
   const [nexp, setNexp] = useState("");
+  const [diary, setDiary] = useState([]);
+  const [nd, setNd] = useState({ date: todayISO(), title: "", text: "" });
+  const [showAddDiary, setShowAddDiary] = useState(false);
   const [confirmDel, setConfirmDel] = useState(null);
   const [confirmExport, setConfirmExport] = useState(false);
   const [drag, setDrag] = useState(null); // arrastrar actividades entre días
@@ -216,6 +219,7 @@ export default function App({ tripId, tripName, onBack }) {
           if (d.docsChk) setDocsChk(d.docsChk);
           if (Array.isArray(d.tasks)) setTasks(d.tasks.map((t) => ({ notes: "", att: [], link: "", ...t })));
           if (Array.isArray(d.experiences)) setExperiences(d.experiences.map((t) => ({ notes: "", att: [], link: "", ...t })));
+          if (Array.isArray(d.diary)) setDiary(d.diary.map((e) => ({ title: "", text: "", att: [], ...e })));
           if (typeof d.rate === "number") setRate(d.rate);
           if (typeof d.budget === "number") setBudget(d.budget);
         }
@@ -239,9 +243,9 @@ export default function App({ tripId, tripName, onBack }) {
     if (!hydrated) return;
     if (saveT.current) clearTimeout(saveT.current);
     saveT.current = setTimeout(async () => {
-      try { await store.set(STORAGE_KEY, JSON.stringify({ tripTitle, itin, bookings, packing, expenses, docsChk, rate, budget, tasks, experiences })); } catch (e) {}
+      try { await store.set(STORAGE_KEY, JSON.stringify({ tripTitle, itin, bookings, packing, expenses, docsChk, rate, budget, tasks, experiences, diary })); } catch (e) {}
     }, 400);
-  }, [tripTitle, itin, bookings, packing, expenses, docsChk, rate, budget, tasks, experiences, hydrated]);
+  }, [tripTitle, itin, bookings, packing, expenses, docsChk, rate, budget, tasks, experiences, diary, hydrated]);
 
   /* ---- adjuntos ---- */
   const purgeAtt = (attId) => {
@@ -253,11 +257,13 @@ export default function App({ tripId, tripName, onBack }) {
     if (editing.kind === "act") setItin((prev) => prev.map((c) => c.id !== editing.cityId ? c : { ...c, days: c.days.map((d) => d.id !== editing.dayId ? d : { ...d, items: d.items.map((a) => a.id !== editing.actId ? a : { ...a, att: [...a.att, attId] }) }) }));
     else if (editing.kind === "booking") setBookings((prev) => prev.map((b) => b.id !== editing.id ? b : { ...b, att: [...(b.att || []), attId] }));
     else if (editing.kind === "check") (editing.listType === "tasks" ? setTasks : setExperiences)((prev) => prev.map((it) => it.id !== editing.id ? it : { ...it, att: [...(it.att || []), attId] }));
+    else if (editing.kind === "diary") setDiary((prev) => prev.map((e) => e.id !== editing.id ? e : { ...e, att: [...(e.att || []), attId] }));
   };
   const detachFromCurrent = (attId) => {
     if (editing.kind === "act") setItin((prev) => prev.map((c) => c.id !== editing.cityId ? c : { ...c, days: c.days.map((d) => d.id !== editing.dayId ? d : { ...d, items: d.items.map((a) => a.id !== editing.actId ? a : { ...a, att: a.att.filter((x) => x !== attId) }) }) }));
     else if (editing.kind === "booking") setBookings((prev) => prev.map((b) => b.id !== editing.id ? b : { ...b, att: (b.att || []).filter((x) => x !== attId) }));
     else if (editing.kind === "check") (editing.listType === "tasks" ? setTasks : setExperiences)((prev) => prev.map((it) => it.id !== editing.id ? it : { ...it, att: (it.att || []).filter((x) => x !== attId) }));
+    else if (editing.kind === "diary") setDiary((prev) => prev.map((e) => e.id !== editing.id ? e : { ...e, att: (e.att || []).filter((x) => x !== attId) }));
     purgeAtt(attId);
   };
   const handleFiles = async (fileList) => {
@@ -478,12 +484,31 @@ export default function App({ tripId, tripName, onBack }) {
   const patchExpenseById = (id, patch) => setExpenses((prev) => prev.map((e) => e.id !== id ? e : { ...e, ...patch }));
   const patchExpense = (patch) => editing && patchExpenseById(editing.id, patch);
   const deleteExpense = () => { setExpenses((prev) => prev.filter((e) => e.id !== editing.id)); setEditing(null); };
+  /* ---- diario ---- */
+  const addDiaryEntry = () => {
+    if (!nd.text.trim() && !nd.title.trim()) return;
+    const id = "j" + Date.now();
+    setDiary((x) => [...x, { id, date: nd.date || todayISO(), title: nd.title.trim(), text: nd.text.trim(), att: [] }]);
+    setNd({ date: todayISO(), title: "", text: "" });
+    setShowAddDiary(false);
+    setAttErr("");
+    setEditing({ kind: "diary", id }); // abrir para añadir fotos
+  };
+  const curDiary = () => (editing && editing.kind === "diary" ? diary.find((e) => e.id === editing.id) : null) || null;
+  const patchDiaryById = (id, patch) => setDiary((prev) => prev.map((e) => e.id !== id ? e : { ...e, ...patch }));
+  const patchDiary = (patch) => editing && patchDiaryById(editing.id, patch);
+  const deleteDiary = () => {
+    const e = curDiary();
+    if (e) (e.att || []).forEach(purgeAtt);
+    setDiary((prev) => prev.filter((x) => x.id !== editing.id));
+    setEditing(null);
+  };
 
   const resetAll = async () => {
     Object.keys(attMap).forEach((id) => { try { store.delete(ATT_PREFIX + id); } catch (e) {} });
     setItin([]); setBookings([]); setOpenCity({}); setPacking(DEFAULT_PACKING);
     setExpenses([]); setDocsChk({}); setRate(7.7); setBudget(0); setAttMap({}); setTripTitle("China");
-    setTasks(DEFAULT_TASKS); setExperiences(DEFAULT_EXPERIENCES); setConfirmReset(false);
+    setTasks(DEFAULT_TASKS); setExperiences(DEFAULT_EXPERIENCES); setDiary([]); setConfirmReset(false);
     try { await store.delete(STORAGE_KEY); } catch (e) {}
   };
 
@@ -686,7 +711,19 @@ export default function App({ tripId, tripName, onBack }) {
     };
     h += `<section><h2>Listas</h2>${listBlock("Gestiones", tasks)}${listBlock("Experiencias", experiences)}</section>`;
 
-    // 7) Info
+    // 7) Diario
+    const diarySorted = [...diary].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+    h += `<section><h2>Diario</h2>`;
+    if (!diarySorted.length) h += `<p class="empty">Sin entradas.</p>`;
+    diarySorted.forEach((e) => {
+      h += `<div class="stop"><h3>${esc(fmtLong(e.date) || "Sin fecha")}${e.title ? ` · ${esc(e.title)}` : ""}</h3>`;
+      if (e.text) h += `<div class="notes">${esc(e.text)}</div>`;
+      h += attHtml(e.att);
+      h += `</div>`;
+    });
+    h += `</section>`;
+
+    // 8) Info
     h += `<section><h2>Documentos y consejos</h2><h3>Antes de salir</h3><ul>`;
     DOCS.forEach((d) => h += `<li>${docsChk[d.id] ? "☑" : "☐"} ${esc(d.label)}</li>`);
     h += `</ul><h3>Consejos prácticos</h3><ul>`;
@@ -1388,6 +1425,77 @@ export default function App({ tripId, tripName, onBack }) {
     </div>
   );
 
+  /* ============ diario ============ */
+  const renderDiario = () => {
+    const entries = [...diary].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+    const photosOf = (att) => (att || []).filter((id) => attMap[id] && (attMap[id].type || "").startsWith("image/"));
+    return (
+      <div className="px-5 pb-6">
+        <div className="pt-1 pb-3 flex items-end justify-between">
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: C.ink }}>Diario</div>
+            <div style={{ color: C.sub, fontSize: 13 }}>Recuerdos del viaje, día a día.</div>
+          </div>
+          <button onClick={() => setShowAddDiary((v) => !v)} className="flex items-center gap-1 rounded-lg px-3 py-2" style={{ background: C.red, color: "#fff", fontSize: 13, fontWeight: 600 }}>
+            <Plus size={16} /> Entrada
+          </button>
+        </div>
+
+        {showAddDiary && (
+          <Card style={{ padding: 14, marginBottom: 14 }}>
+            <div style={{ fontSize: 11, color: C.sub, marginBottom: 4 }}>Día</div>
+            <input type="date" value={nd.date} onChange={(e) => setNd({ ...nd, date: e.target.value })} style={{ ...inp, ...mono, fontSize: 12, marginBottom: 8 }} />
+            <input value={nd.title} onChange={(e) => setNd({ ...nd, title: e.target.value })} placeholder="Título (opcional)" style={{ ...inp, marginBottom: 8 }} />
+            <textarea value={nd.text} onChange={(e) => setNd({ ...nd, text: e.target.value })} rows={4} placeholder="¿Qué habéis hecho hoy? ¿Qué queréis recordar?" style={{ ...inp, resize: "none", marginBottom: 8 }} />
+            <div className="flex gap-2">
+              <button onClick={() => { setShowAddDiary(false); setNd({ date: todayISO(), title: "", text: "" }); }} className="flex-1 rounded-lg py-2" style={{ border: `1px solid ${C.line}`, background: C.card, color: C.sub, fontSize: 13, fontWeight: 600 }}>Cancelar</button>
+              <button onClick={addDiaryEntry} disabled={!nd.text.trim() && !nd.title.trim()} className="flex-1 rounded-lg py-2" style={{ background: C.red, color: "#fff", fontSize: 13, fontWeight: 700, opacity: (nd.text.trim() || nd.title.trim()) ? 1 : 0.5 }}>Crear y añadir fotos</button>
+            </div>
+          </Card>
+        )}
+
+        {entries.length === 0 ? (
+          <Empty icon={BookOpen} title="Diario vacío" text="Pulsa «Entrada» para escribir tu primer recuerdo y añadir fotos." />
+        ) : (
+          <div className="flex flex-col gap-3">
+            {entries.map((e) => {
+              const p = e.date ? dparts(e.date) : null;
+              const imgs = photosOf(e.att);
+              return (
+                <Card key={e.id} style={{ overflow: "hidden" }}>
+                  <div className="flex items-start gap-3 px-4 pt-3">
+                    <div className="flex flex-col items-center justify-center rounded-lg" style={{ background: C.paper, width: 46, height: 46, flexShrink: 0 }}>
+                      <span style={{ ...mono, fontSize: 16, fontWeight: 800, color: p ? C.ink : C.sub, lineHeight: 1 }}>{p ? p.dd : "—"}</span>
+                      {p && <span style={{ fontSize: 9.5, color: C.sub, textTransform: "uppercase" }}>{p.mmm}</span>}
+                    </div>
+                    <button onClick={() => { setAttErr(""); setEditing({ kind: "diary", id: e.id }); }} className="flex-1 text-left min-w-0">
+                      <div style={{ fontSize: 10.5, color: C.sub, textTransform: "uppercase", letterSpacing: 1, fontWeight: 600 }}>{p ? p.dow : "Sin fecha"}</div>
+                      <div style={{ fontWeight: 800, color: C.ink, fontSize: 16 }}>{e.title || (p ? `${p.dd} ${p.mmm}` : "Entrada")}</div>
+                    </button>
+                    <button onClick={() => { setAttErr(""); setEditing({ kind: "diary", id: e.id }); }} className="p-1"><Pencil size={15} color={C.sub} /></button>
+                  </div>
+                  {e.text && <div className="px-4 pt-2" style={{ fontSize: 14, color: C.ink, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{e.text}</div>}
+                  {imgs.length > 0 && (
+                    <div className="px-4 pt-3 grid grid-cols-3 gap-1.5">
+                      {imgs.map((id) => (
+                        <img key={id} src={attMap[id].data} onClick={() => setLightbox(attMap[id].data)} alt="" style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 8, cursor: "pointer" }} />
+                      ))}
+                    </div>
+                  )}
+                  <div className="px-4 pt-3 pb-3">
+                    <button onClick={() => { setAttErr(""); setEditing({ kind: "diary", id: e.id }); }} className="flex items-center gap-1.5" style={{ color: C.red, fontSize: 12.5, fontWeight: 600 }}>
+                      <ImageIcon size={14} /> {imgs.length ? "Ver / editar" : "Añadir fotos y editar"}
+                    </button>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   /* ============ adjuntos (compartido) ============ */
   const renderAttachments = (attList) => (
     <Field label="Archivos adjuntos">
@@ -1433,13 +1541,14 @@ export default function App({ tripId, tripName, onBack }) {
     if (!editing) return null;
     const k = editing.kind;
     let title = "", subtitle = "", attList = [];
-    let act = null, bk = null, city = null, day = null, chk = null, exp = null;
+    let act = null, bk = null, city = null, day = null, chk = null, exp = null, dia = null;
     if (k === "act") { act = curAct(); if (!act) return null; const dd = curDayForAct(); subtitle = dd ? `${dd.date ? `${dparts(dd.date).dow} ${dparts(dd.date).dd} ${dparts(dd.date).mmm} · ` : ""}${dd.title || "Día"}` : ""; title = "Detalle de actividad"; attList = act.att || []; }
     else if (k === "booking") { bk = curBk(); if (!bk) return null; subtitle = `Reserva · ${bk.type}`; title = "Detalle de reserva"; attList = bk.att || []; }
     else if (k === "city") { city = curCity(); if (!city) return null; subtitle = "Parada"; title = "Editar parada"; }
     else if (k === "day") { city = curCity(); day = curDayObj(); if (!day) return null; subtitle = city ? city.city : "Día"; title = "Editar día"; }
     else if (k === "check") { chk = curCheck(); if (!chk) return null; subtitle = editing.listType === "tasks" ? "Gestión" : "Experiencia"; title = "Detalle"; attList = chk.att || []; }
     else if (k === "expense") { exp = curExpense(); if (!exp) return null; subtitle = "Gasto manual"; title = "Editar gasto"; }
+    else if (k === "diary") { dia = curDiary(); if (!dia) return null; subtitle = dia.date ? `${dparts(dia.date).dow} ${dparts(dia.date).dd} ${dparts(dia.date).mmm}` : "Entrada"; title = "Entrada del diario"; attList = dia.att || []; }
 
     const overlay = { position: "fixed", inset: 0, background: "rgba(20,16,12,0.45)", zIndex: 50, display: "flex", alignItems: "flex-end", justifyContent: "center" };
     const sheet = { background: C.paper, width: "100%", maxWidth: 480, maxHeight: "90vh", overflowY: "auto", borderTopLeftRadius: 20, borderTopRightRadius: 20 };
@@ -1575,6 +1684,16 @@ export default function App({ tripId, tripName, onBack }) {
                 <button onClick={() => setConfirmDel({ name: exp.desc || exp.cat, where: "de los gastos", onConfirm: deleteExpense })} className="w-full flex items-center justify-center gap-2 rounded-xl py-3 mt-2" style={{ color: C.red, border: `1px solid ${C.line}`, fontSize: 13, fontWeight: 600 }}><Trash2 size={15} /> Eliminar gasto</button>
               </>
             )}
+
+            {k === "diary" && (
+              <>
+                <Field label="Día"><input type="date" value={dia.date || ""} onChange={(e) => patchDiary({ date: e.target.value })} style={{ ...inp, ...mono }} /></Field>
+                <Field label="Título"><input value={dia.title || ""} onChange={(e) => patchDiary({ title: e.target.value })} placeholder="Un título para el día (opcional)" style={inp} /></Field>
+                <Field label="¿Qué recordar de hoy?"><textarea value={dia.text || ""} onChange={(e) => patchDiary({ text: e.target.value })} rows={6} placeholder="Escribe aquí tu recuerdo del día…" style={{ ...inp, resize: "none" }} /></Field>
+                {renderAttachments(attList)}
+                <button onClick={() => setConfirmDel({ name: dia.title || (dia.date ? `la entrada del ${dparts(dia.date).dd} ${dparts(dia.date).mmm}` : "esta entrada"), where: "del diario", onConfirm: deleteDiary })} className="w-full flex items-center justify-center gap-2 rounded-xl py-3 mt-2" style={{ color: C.red, border: `1px solid ${C.line}`, fontSize: 13, fontWeight: 600 }}><Trash2 size={15} /> Eliminar entrada</button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -1592,6 +1711,7 @@ export default function App({ tripId, tripName, onBack }) {
     { id: "reservas", icon: FileText, label: "Reservas", render: renderReservas },
     { id: "equipaje", icon: Luggage, label: "Maleta", render: renderMaleta },
     { id: "checklist", icon: ListChecks, label: "Listas", render: renderChecklist },
+    { id: "diario", icon: BookOpen, label: "Diario", render: renderDiario },
     { id: "docs", icon: AlertCircle, label: "Info", render: renderInfo },
   ];
   const active = TABS.find((t) => t.id === tab);
@@ -1642,7 +1762,7 @@ export default function App({ tripId, tripName, onBack }) {
           <div onClick={(e) => e.stopPropagation()} style={{ background: C.paper, width: "100%", maxWidth: 360, borderRadius: 16, padding: 20, border: `1px solid ${C.line}` }}>
             <div className="flex items-center gap-2 mb-2" style={{ color: C.ink, fontWeight: 800, fontSize: 16 }}><Download size={18} color={C.red} /> Exportar a PDF</div>
             <div style={{ fontSize: 14, color: C.sub, lineHeight: 1.5, marginBottom: 20 }}>
-              Se abrirá el diálogo de impresión para guardar un <b style={{ color: C.ink }}>PDF</b> con <b style={{ color: C.ink }}>toda</b> la información del viaje (resumen, ruta, gastos, reservas, maleta, listas y documentos), en el mismo orden que la app. Elige <b style={{ color: C.ink }}>“Guardar como PDF”</b> como destino.
+              Se abrirá el diálogo de impresión para guardar un <b style={{ color: C.ink }}>PDF</b> con <b style={{ color: C.ink }}>toda</b> la información del viaje (resumen, ruta, gastos, reservas, maleta, listas, diario y documentos), en el mismo orden que la app. Elige <b style={{ color: C.ink }}>“Guardar como PDF”</b> como destino.
             </div>
             <div className="flex gap-2">
               <button onClick={() => setConfirmExport(false)} className="flex-1 rounded-lg py-2.5" style={{ border: `1px solid ${C.line}`, background: C.card, color: C.sub, fontSize: 14, fontWeight: 600 }}>Cancelar</button>
