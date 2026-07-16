@@ -120,8 +120,10 @@ const EXP_COLORS = { Vuelos: "#3D5A98", Alojamiento: "#C0392B", Transporte: "#9A
 const PACK_CATS = ["Documentos", "Ropa", "Electrónica", "Aseo y salud", "Otros"];
 const TYPE_TO_CAT = { comida: "Comida", traslado: "Transporte", logistica: "Otros", historia: "Actividades", cultura: "Actividades", naturaleza: "Actividades", tech: "Actividades" };
 /* Personas que comparten gastos: Fa (yo) y Rubén */
+/* Las dos personas que comparten gastos. Las claves ("fa"/"ruben") son internas y
+   no se muestran nunca: los nombres visibles se guardan por viaje en `payerNames`. */
 const PAYERS = ["fa", "ruben"];
-const PAYER_LABEL = { fa: "Fa", ruben: "Rubén" };
+const PAYER_DEFAULT_NAMES = { fa: "Persona 1", ruben: "Persona 2" };
 const PAYER_COLOR = { fa: "#C0392B", ruben: "#3D5A98" };
 
 /* ============ componentes estables ============ */
@@ -164,6 +166,8 @@ export default function App({ tripId, tripName, onBack }) {
   const [docsChk, setDocsChk] = useState({});
   const [rate, setRate] = useState(7.7);
   const [budget, setBudget] = useState(0);
+  const [payerNames, setPayerNames] = useState(PAYER_DEFAULT_NAMES);
+  const [editPayers, setEditPayers] = useState(false);
   const [openCity, setOpenCity] = useState({});
   const [openDay, setOpenDay] = useState({});
   const [attMap, setAttMap] = useState({});
@@ -222,6 +226,7 @@ export default function App({ tripId, tripName, onBack }) {
           if (Array.isArray(d.diary)) setDiary(d.diary.map((e) => ({ title: "", text: "", att: [], ...e })));
           if (typeof d.rate === "number") setRate(d.rate);
           if (typeof d.budget === "number") setBudget(d.budget);
+          if (d.payerNames) setPayerNames({ ...PAYER_DEFAULT_NAMES, ...d.payerNames });
         }
       } catch (e) {}
       try {
@@ -243,9 +248,9 @@ export default function App({ tripId, tripName, onBack }) {
     if (!hydrated) return;
     if (saveT.current) clearTimeout(saveT.current);
     saveT.current = setTimeout(async () => {
-      try { await store.set(STORAGE_KEY, JSON.stringify({ tripTitle, itin, bookings, packing, expenses, docsChk, rate, budget, tasks, experiences, diary })); } catch (e) {}
+      try { await store.set(STORAGE_KEY, JSON.stringify({ tripTitle, itin, bookings, packing, expenses, docsChk, rate, budget, tasks, experiences, diary, payerNames })); } catch (e) {}
     }, 400);
-  }, [tripTitle, itin, bookings, packing, expenses, docsChk, rate, budget, tasks, experiences, diary, hydrated]);
+  }, [tripTitle, itin, bookings, packing, expenses, docsChk, rate, budget, tasks, experiences, diary, payerNames, hydrated]);
 
   /* al entrar en la Ruta, ir automáticamente al día de hoy (o al más próximo) */
   useEffect(() => {
@@ -540,7 +545,7 @@ export default function App({ tripId, tripName, onBack }) {
     </Field>
   );
   const renderPayerPicker = (value, onChange, allowNone) => {
-    const choices = allowNone ? [["", "Sin pagar"], ["fa", "Fa"], ["ruben", "Rubén"]] : [["fa", "Fa"], ["ruben", "Rubén"]];
+    const choices = allowNone ? [["", "Sin pagar"], ["fa", payerNames.fa], ["ruben", payerNames.ruben]] : [["fa", payerNames.fa], ["ruben", payerNames.ruben]];
     return (
       <div className="flex gap-1.5">
         {choices.map(([v, l]) => {
@@ -649,7 +654,7 @@ export default function App({ tripId, tripName, onBack }) {
           const time = a.t ? (a.tEnd ? `${a.t}–${a.tEnd}` : a.t) : "—";
           const bits = [];
           if (a.price > 0) bits.push(a.cur === "CNY" ? `¥${a.price}` : eur(a.price));
-          if (a.paidBy) bits.push(`Pagó ${PAYER_LABEL[a.paidBy]}`);
+          if (a.paidBy) bits.push(`Pagó ${payerNames[a.paidBy]}`);
           if (a.booked) bits.push("✔ comprado/reservado");
           h += `<div class="act"><span class="time">${esc(time)}</span> <b>${esc(a.x || "(sin título)")}</b> <span class="tag">${esc(TYPE[a.type] ? TYPE[a.type].l : a.type)}</span>`;
           if (bits.length) h += `<div class="meta">${esc(bits.join(" · "))}</div>`;
@@ -669,15 +674,15 @@ export default function App({ tripId, tripName, onBack }) {
     h += `<p>Total: <b>${esc(eur(totalSpent))}</b> (Ruta ${esc(eur(routeTotal))} · Manual ${esc(eur(manualTotal))})</p>`;
     if (budget > 0) h += `<p>Presupuesto: ${esc(eur(budget))} · ${totalSpent > budget ? "Excedido en" : "Queda"} ${esc(eur(Math.abs(budget - totalSpent)))}</p>`;
     h += `<p>Cambio: 1 € ≈ ${esc(rate)} ¥</p>`;
-    h += `<h3>Balance Fa · Rubén</h3>`;
-    h += `<p>Fa ha pagado ${esc(eur(paidBy.fa))} · Rubén ha pagado ${esc(eur(paidBy.ruben))}</p>`;
+    h += `<h3>Balance ${esc(payerNames.fa)} · ${esc(payerNames.ruben)}</h3>`;
+    h += `<p>${esc(payerNames.fa)} ha pagado ${esc(eur(paidBy.fa))} · ${esc(payerNames.ruben)} ha pagado ${esc(eur(paidBy.ruben))}</p>`;
     if (sharedTotal <= 0) h += `<p class="sub">Sin gastos con pagador asignado.</p>`;
     else if (balanceAmount < 0.005) h += `<p><b>Estáis en paz.</b></p>`;
-    else h += `<p><b>${PAYER_LABEL[balanceDebtor]} debe ${esc(eur(balanceAmount))} a ${PAYER_LABEL[balanceCreditor]}</b></p>`;
+    else h += `<p><b>${esc(payerNames[balanceDebtor])} debe ${esc(eur(balanceAmount))} a ${esc(payerNames[balanceCreditor])}</b></p>`;
     if (unassignedPaid > 0.005) h += `<p class="sub">${esc(eur(unassignedPaid))} sin asignar a una persona.</p>`;
     if (pieData.length) { h += `<h3>Por categoría</h3><ul>`; pieData.forEach((d) => h += `<li>${esc(d.name)}: ${esc(eur(d.value))}</li>`); h += `</ul>`; }
-    if (expenses.length) { h += `<h3>Gastos manuales</h3><ul>`; expenses.forEach((e) => h += `<li>${esc(e.desc || e.cat)} — ${esc(e.cat)} · ${esc(fmtShort(e.date))} · ${e.paidBy ? esc(PAYER_LABEL[e.paidBy]) : "—"} · <b>${esc(eur(eurOf(e.amount, e.cur)))}</b>${e.cur === "CNY" ? ` (¥${esc(e.amount)})` : ""}${e.link ? linkHtml(e.link) : ""}</li>`); h += `</ul>`; }
-    if (routeExpenses.length) { h += `<h3>Gastos de la ruta</h3><ul>`; routeExpenses.forEach((e) => h += `<li>${esc(e.name)} — ${esc(e.city)}${e.date ? ` · ${esc(fmtShort(e.date))}` : ""} · ${e.paidBy ? esc(PAYER_LABEL[e.paidBy]) : "—"} · <b>${esc(eur(eurOf(e.amount, e.cur)))}</b></li>`); h += `</ul>`; }
+    if (expenses.length) { h += `<h3>Gastos manuales</h3><ul>`; expenses.forEach((e) => h += `<li>${esc(e.desc || e.cat)} — ${esc(e.cat)} · ${esc(fmtShort(e.date))} · ${e.paidBy ? esc(payerNames[e.paidBy]) : "—"} · <b>${esc(eur(eurOf(e.amount, e.cur)))}</b>${e.cur === "CNY" ? ` (¥${esc(e.amount)})` : ""}${e.link ? linkHtml(e.link) : ""}</li>`); h += `</ul>`; }
+    if (routeExpenses.length) { h += `<h3>Gastos de la ruta</h3><ul>`; routeExpenses.forEach((e) => h += `<li>${esc(e.name)} — ${esc(e.city)}${e.date ? ` · ${esc(fmtShort(e.date))}` : ""} · ${e.paidBy ? esc(payerNames[e.paidBy]) : "—"} · <b>${esc(eur(eurOf(e.amount, e.cur)))}</b></li>`); h += `</ul>`; }
     h += `</section>`;
 
     // 4) Reservas
@@ -1016,7 +1021,7 @@ export default function App({ tripId, tripName, onBack }) {
                                       {(a.price > 0 || (a.att && a.att.length) || a.notes || a.paidBy || a.link) && (
                                         <div className="flex items-center gap-2.5 mt-1">
                                           {a.price > 0 && <span style={{ ...mono, fontSize: 11, color: C.redDeep, fontWeight: 700 }}>{a.cur === "CNY" ? `¥${a.price}` : eur(a.price)}</span>}
-                                          {a.paidBy && <span style={{ fontSize: 10.5, fontWeight: 700, color: PAYER_COLOR[a.paidBy] }}>{PAYER_LABEL[a.paidBy]}</span>}
+                                          {a.paidBy && <span style={{ fontSize: 10.5, fontWeight: 700, color: PAYER_COLOR[a.paidBy] }}>{payerNames[a.paidBy]}</span>}
                                           {a.link && <Link2 size={12} color={C.sub} />}
                                           {a.att && a.att.length > 0 && <span className="flex items-center gap-0.5" style={{ fontSize: 11, color: C.sub }}><Paperclip size={11} />{a.att.length}</span>}
                                           {a.notes && <StickyNote size={12} color={C.sub} />}
@@ -1125,12 +1130,22 @@ export default function App({ tripId, tripName, onBack }) {
 
       <Card style={{ padding: 16, marginBottom: 14 }}>
         <div className="flex items-center gap-2 mb-3" style={{ color: C.ink, fontWeight: 700, fontSize: 14 }}>
-          <Wallet size={16} style={{ color: C.red }} /> Balance Fa · Rubén
+          <Wallet size={16} style={{ color: C.red }} />
+          <span className="flex-1">Balance {payerNames.fa} · {payerNames.ruben}</span>
+          <button onClick={() => setEditPayers((v) => !v)} className="p-1" aria-label="Editar nombres"><Pencil size={14} color={C.sub} /></button>
         </div>
+        {editPayers && (
+          <div className="flex gap-2 mb-3">
+            {PAYERS.map((p) => (
+              <input key={p} value={payerNames[p]} onChange={(e) => setPayerNames((n) => ({ ...n, [p]: e.target.value }))} placeholder="Nombre" maxLength={18}
+                style={{ ...inp, flex: 1, borderColor: PAYER_COLOR[p] + "66", color: PAYER_COLOR[p], fontWeight: 700 }} />
+            ))}
+          </div>
+        )}
         <div className="flex gap-3 mb-3">
           {PAYERS.map((p) => (
             <div key={p} className="flex-1 rounded-xl px-3 py-2.5" style={{ background: PAYER_COLOR[p] + "12", border: `1px solid ${PAYER_COLOR[p]}33` }}>
-              <div style={{ fontSize: 11, color: C.sub, fontWeight: 600 }}>{PAYER_LABEL[p]} ha pagado</div>
+              <div style={{ fontSize: 11, color: C.sub, fontWeight: 600 }}>{payerNames[p]} ha pagado</div>
               <div style={{ ...mono, fontSize: 17, fontWeight: 800, color: PAYER_COLOR[p] }}>{eur(paidBy[p])}</div>
             </div>
           ))}
@@ -1142,7 +1157,7 @@ export default function App({ tripId, tripName, onBack }) {
             <span style={{ fontSize: 14, fontWeight: 700 }}>Estáis en paz 🎉</span>
           ) : (
             <div>
-              <span style={{ fontSize: 13, color: "#C9BFB2" }}><b style={{ color: "#fff" }}>{PAYER_LABEL[balanceDebtor]}</b> debe a <b style={{ color: "#fff" }}>{PAYER_LABEL[balanceCreditor]}</b></span>
+              <span style={{ fontSize: 13, color: "#C9BFB2" }}><b style={{ color: "#fff" }}>{payerNames[balanceDebtor]}</b> debe a <b style={{ color: "#fff" }}>{payerNames[balanceCreditor]}</b></span>
               <div style={{ ...mono, fontSize: 26, fontWeight: 800, color: "#fff", lineHeight: 1.1 }}>{eur(balanceAmount)}</div>
             </div>
           )}
@@ -1182,7 +1197,7 @@ export default function App({ tripId, tripName, onBack }) {
                 <span style={{ width: 8, height: 8, borderRadius: 99, background: EXP_COLORS[e.cat], flexShrink: 0 }} />
                 <div className="flex-1 min-w-0">
                   <div style={{ fontSize: 14, color: C.ink, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.desc || e.cat}</div>
-                  <div style={{ fontSize: 11, color: C.sub }}>{e.cat} · {dparts(e.date).dd} {dparts(e.date).mmm}{e.paidBy ? <> · <b style={{ color: PAYER_COLOR[e.paidBy] }}>{PAYER_LABEL[e.paidBy]}</b></> : ""}{e.link ? <Link2 size={11} color={C.sub} style={{ display: "inline", verticalAlign: "-1px", marginLeft: 4 }} /> : null}</div>
+                  <div style={{ fontSize: 11, color: C.sub }}>{e.cat} · {dparts(e.date).dd} {dparts(e.date).mmm}{e.paidBy ? <> · <b style={{ color: PAYER_COLOR[e.paidBy] }}>{payerNames[e.paidBy]}</b></> : ""}{e.link ? <Link2 size={11} color={C.sub} style={{ display: "inline", verticalAlign: "-1px", marginLeft: 4 }} /> : null}</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <div style={{ ...mono, fontSize: 14, fontWeight: 700, color: C.ink }}>{eur(eurOf(e.amount, e.cur))}</div>
@@ -1208,7 +1223,7 @@ export default function App({ tripId, tripName, onBack }) {
                 <span style={{ width: 8, height: 8, borderRadius: 99, background: EXP_COLORS[e.cat], flexShrink: 0 }} />
                 <div className="flex-1 min-w-0">
                   <div style={{ fontSize: 14, color: C.ink, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.name}</div>
-                  <div style={{ fontSize: 11, color: C.sub }}>{e.city}{e.date ? ` · ${dparts(e.date).dd} ${dparts(e.date).mmm}` : ""}{e.paidBy ? <> · <b style={{ color: PAYER_COLOR[e.paidBy] }}>{PAYER_LABEL[e.paidBy]}</b></> : ""}</div>
+                  <div style={{ fontSize: 11, color: C.sub }}>{e.city}{e.date ? ` · ${dparts(e.date).dd} ${dparts(e.date).mmm}` : ""}{e.paidBy ? <> · <b style={{ color: PAYER_COLOR[e.paidBy] }}>{payerNames[e.paidBy]}</b></> : ""}</div>
                 </div>
                 <div style={{ ...mono, fontSize: 14, fontWeight: 700, color: C.ink }}>{eur(eurOf(e.amount, e.cur))}</div>
                 <ChevronRight size={15} color={C.line} />
