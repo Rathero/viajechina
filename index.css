@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* La app usa color y tipografía en línea (objeto C de App.jsx). Aquí solo van
+   los ajustes globales que el preflight de Tailwind no cubre. */
+html,
+body {
+  background: #edf1f4;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Foco visible para teclado, sin marcarlo al tocar con el dedo. */
+:focus-visible {
+  outline: 2px solid #ff5a3c;
+  outline-offset: 2px;
+}

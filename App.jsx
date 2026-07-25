@@ -38,7 +38,28 @@ const dparts = (iso) => {
   const dt = new Date(Date.UTC(y, m - 1, d));
   return { dow: DOW[dt.getUTCDay()], dd: d, mmm: MON[m - 1] };
 };
-const eur = (n) => "€" + (Math.round((n || 0) * 100) / 100).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/* Monedas seleccionables por viaje. `sym` es lo que se pinta junto al importe. */
+const CURRENCIES = [
+  ["EUR", "€", "Euro"], ["USD", "$", "Dólar"], ["GBP", "£", "Libra"], ["JPY", "¥", "Yen"],
+  ["CNY", "¥", "Yuan"], ["MXN", "$", "Peso mexicano"], ["ARS", "$", "Peso argentino"],
+  ["COP", "$", "Peso colombiano"], ["CLP", "$", "Peso chileno"], ["BRL", "R$", "Real"],
+  ["CHF", "CHF", "Franco suizo"], ["CAD", "$", "Dólar canadiense"], ["AUD", "$", "Dólar australiano"],
+  ["MAD", "DH", "Dírham"], ["THB", "฿", "Baht"], ["TRY", "₺", "Lira turca"],
+  ["INR", "₹", "Rupia"], ["IDR", "Rp", "Rupia indonesia"], ["VND", "₫", "Dong"],
+  ["KRW", "₩", "Won"], ["NOK", "kr", "Corona noruega"], ["SEK", "kr", "Corona sueca"],
+  ["DKK", "kr", "Corona danesa"], ["PLN", "zł", "Zloty"], ["CZK", "Kč", "Corona checa"],
+  ["ZAR", "R", "Rand"], ["EGP", "E£", "Libra egipcia"], ["ISK", "kr", "Corona islandesa"],
+];
+const CUR_SYM = Object.fromEntries(CURRENCIES.map(([c, s]) => [c, s]));
+const symOf = (code) => CUR_SYM[code] || code || "";
+/* Las monedas sin decimales (yen, won, pesos chilenos…) se muestran redondeadas. */
+const NO_DECIMALS = new Set(["JPY", "KRW", "CLP", "VND", "IDR", "ISK"]);
+const fmtAmount = (n, code) => {
+  const d = NO_DECIMALS.has(code) ? 0 : 2;
+  const v = (Math.round((n || 0) * (d ? 100 : 1)) / (d ? 100 : 1))
+    .toLocaleString("es-ES", { minimumFractionDigits: d, maximumFractionDigits: d });
+  return symOf(code) + v;
+};
 const normalizeUrl = (u) => { const s = (u || "").trim(); return s ? (/^https?:\/\//i.test(s) ? s : "https://" + s) : ""; };
 const todayISO = () => {
   const n = new Date();
@@ -72,53 +93,55 @@ const fileToDataURL = (f) => new Promise((res, rej) => {
 
 // Las claves de almacenamiento se derivan del viaje (ver dentro de App).
 const mono = { fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" };
-const inp = { width: "100%", background: C.card, border: `1px solid ${C.line}`, borderRadius: 10, padding: "10px 12px", fontSize: 14, color: C.ink, outline: "none" };
+/* fontSize 16: por debajo de 16px iOS hace zoom automático al enfocar el campo. */
+const inp = { width: "100%", background: C.card, border: `1px solid ${C.line}`, borderRadius: 10, padding: "10px 12px", fontSize: 16, color: C.ink, outline: "none" };
 
 
 
 /* maleta: plantilla útil de partida (editable) */
 const DEFAULT_PACKING = [
-  ["Documentos", ["Pasaporte (+6 meses de validez)", "Seguro de viaje", "Copias de documentos", "Tarjeta para Alipay / WeChat"]],
-  ["Ropa", ["Capas / jersey", "Chaqueta cortavientos", "Calzado cómodo para caminar", "Paraguas plegable"]],
-  ["Electrónica", ["Adaptador de enchufe China (tipo A/I)", "Power bank", "Cargadores", "eSIM o VPN configurado"]],
+  ["Documentos", ["Pasaporte o DNI en vigor", "Seguro de viaje", "Copia de los documentos", "Tarjeta de crédito / débito"]],
+  ["Ropa", ["Ropa para el clima del destino", "Calzado cómodo para caminar", "Chaqueta ligera", "Paraguas plegable"]],
+  ["Electrónica", ["Adaptador de enchufe del país", "Power bank", "Cargadores y cables", "Auriculares"]],
   ["Aseo y salud", ["Medicación personal + receta", "Botiquín básico", "Protección solar"]],
-  ["Otros", ["Mochila de día", "Botella reutilizable", "Algo de efectivo en CNY"]],
+  ["Otros", ["Mochila de día", "Botella reutilizable", "Algo de efectivo en moneda local"]],
 ].flatMap(([cat, items], ci) => items.map((it, i) => ({ id: `k${ci}-${i}`, cat, item: it, done: false })));
 
 /* checklist: gestiones (organización) y experiencias (qué quiero vivir) — plantilla editable */
 const DEFAULT_TASKS = [
+  "Comprobar la validez del pasaporte",
+  "Mirar si el destino pide visado",
   "Comprar el seguro de viaje",
   "Comprar la tarjeta SIM / eSIM",
-  "Pedir dinero en efectivo (CNY)",
-  "Vincular tarjeta a Alipay / WeChat Pay",
-  "Configurar la VPN antes de salir",
-  "Descargar mapas y traductor offline",
+  "Sacar algo de efectivo en moneda local",
+  "Avisar al banco de que viajas",
+  "Descargar mapas y traductor sin conexión",
 ].map((t, i) => ({ id: `t${i}`, text: t, done: false, notes: "", att: [], link: "" }));
 
 const DEFAULT_EXPERIENCES = [
-  "Probar un coche totalmente autónomo (robotaxi)",
-  "Subir al tren maglev de Shanghái",
-  "Cenar en un mercado nocturno local",
-  "Ver un espectáculo de la Ópera de Pekín",
+  "Comer en un mercado local",
+  "Ver un amanecer o un atardecer con vistas",
+  "Perderse por el casco antiguo sin mapa",
+  "Probar el plato típico del sitio",
 ].map((t, i) => ({ id: `x${i}`, text: t, done: false, notes: "", att: [], link: "" }));
 
 const DOCS = [
-  { id: "doc1", label: "Pasaporte con validez mínima de 6 meses y 2 páginas libres" },
-  { id: "doc2", label: "Sin visado: estancias de hasta 30 días para españoles, vigente hasta 31/12/2026" },
-  { id: "doc3", label: "E-Arrival Card (declaración electrónica de entrada): obligatoria aunque no haga falta visado" },
+  { id: "doc1", label: "Pasaporte o DNI en vigor (muchos países piden 6 meses de validez)" },
+  { id: "doc2", label: "Visado, si el destino lo exige para tu nacionalidad" },
+  { id: "doc3", label: "Formulario de entrada, si el país pide declaración previa" },
   { id: "doc4", label: "Seguro médico de viaje contratado" },
-  { id: "doc5", label: "Billete de salida con fecha (pueden pedirlo en frontera)" },
-  { id: "doc6", label: "Reservas de hotel y vuelos guardadas en PDF / captura" },
-  { id: "doc7", label: "Registro policial en 24h solo si NO te alojas en hotel (el hotel lo hace por ti)" },
-  { id: "doc8", label: "Vacunas: ninguna obligatoria (consultar recomendaciones generales)" },
+  { id: "doc5", label: "Billete de vuelta o de salida con fecha" },
+  { id: "doc6", label: "Reservas de vuelos y alojamiento guardadas en PDF" },
+  { id: "doc7", label: "Vacunas exigidas o recomendadas para el destino" },
+  { id: "doc8", label: "Carné de conducir internacional, si vas a alquilar coche" },
 ];
 const TIPS = [
-  { icon: CreditCard, t: "Pagos", x: "Alipay y WeChat Pay son imprescindibles; vincula tu Visa o Mastercard antes de salir. El efectivo casi no se usa." },
-  { icon: Wifi, t: "Internet", x: "Google, WhatsApp, Instagram y Gmail están bloqueados. Lleva una eSIM internacional (enruta fuera de China) o instala una VPN ANTES de viajar." },
-  { icon: Train, t: "Transporte", x: "Tren de alta velocidad para las distancias largas: compra con antelación y lleva el pasaporte. Metro con QR y Didi (tipo Uber) para taxis." },
-  { icon: Globe, t: "Idioma", x: "Poca gente habla inglés. Descarga un traductor offline (Google Translate / Pleco) y guarda las direcciones en chino." },
-  { icon: AlertCircle, t: "Clima oct–nov", x: "Norte (Pekín, Xi'an) fresco, 5–16°C. Centro y sur templado, 12–22°C. Lleva capas y una chaqueta ligera." },
-  { icon: Building2, t: "Registro policial", x: "Si te alojas en hotel te registran al hacer check-in. En Shanghái, si hace falta, puede hacerse online." },
+  { icon: CreditCard, t: "Pagos", x: "Avisa al banco de las fechas del viaje y lleva dos tarjetas de bancos distintos. Ten siempre algo de efectivo en moneda local para taxis y mercados." },
+  { icon: Wifi, t: "Conexión", x: "Una eSIM contratada antes de salir suele salir más barata que el roaming y funciona nada más aterrizar. Comprueba si el país bloquea alguna app que uses." },
+  { icon: Globe, t: "Idioma", x: "Descarga el idioma en el traductor para usarlo sin conexión y guarda las direcciones escritas en el idioma local para enseñárselas a un taxista." },
+  { icon: Train, t: "Transporte", x: "Los trenes y buses de larga distancia salen más baratos comprados con antelación. Mira si hay abono turístico de transporte en las ciudades que visites." },
+  { icon: AlertCircle, t: "Antes de salir", x: "Guarda copia de pasaporte, seguro y reservas en el móvil y en la nube. Apunta el teléfono del consulado de tu país en el destino." },
+  { icon: Building2, t: "Alojamiento", x: "Confirma la hora de entrada y si hay recepción 24 h. Si llegas de madrugada, avisa: muchos alojamientos pequeños cierran por la noche." },
 ];
 const EXP_CATS = ["Vuelos", "Alojamiento", "Transporte", "Comida", "Actividades", "Compras", "Otros"];
 const EXP_COLORS = { Vuelos: "#3D6FA6", Alojamiento: "#FF5A3C", Transporte: "#C9962E", Comida: "#E0883B", Actividades: "#1CA6A6", Compras: "#7E5BA6", Otros: "#7E8C95" };
@@ -173,6 +196,8 @@ export default function App({ tripId, tripName, onBack }) {
   const [budget, setBudget] = useState(0);
   const [payerNames, setPayerNames] = useState(PAYER_DEFAULT_NAMES);
   const [editPayers, setEditPayers] = useState(false);
+  /* base = la moneda en la que quieres ver los totales; trip = la del destino. */
+  const [currency, setCurrency] = useState({ base: "EUR", trip: "EUR" });
   const [openCity, setOpenCity] = useState({});
   const [openDay, setOpenDay] = useState({});
   const [attMap, setAttMap] = useState({});
@@ -180,6 +205,13 @@ export default function App({ tripId, tripName, onBack }) {
   const [attErr, setAttErr] = useState("");
   const [lightbox, setLightbox] = useState(null);
   const [hydrated, setHydrated] = useState(false);
+  const [loadErr, setLoadErr] = useState("");
+  const [saveErr, setSaveErr] = useState(false);
+  const [conflict, setConflict] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  /* Marca de la última versión conocida del viaje. Sirve para detectar que otra
+     persona (viaje compartido) ha guardado mientras editábamos. */
+  const lastStamp = useRef(null);
   // formularios
   const [nc, setNc] = useState({ name: "", start: "", end: "", mode: "" });
   const [showAddCity, setShowAddCity] = useState(false);
@@ -208,10 +240,12 @@ export default function App({ tripId, tripName, onBack }) {
   /* cargar */
   useEffect(() => {
     (async () => {
+      setLoadErr("");
       try {
         const r = await store.get(STORAGE_KEY);
         if (r && r.value) {
           const d = JSON.parse(r.value);
+          lastStamp.current = d.savedAt || null;
           if (typeof d.tripTitle === "string") setTripTitle(d.tripTitle);
           if (Array.isArray(d.itin)) {
             const it = d.itin.map((c) => ({ into: null, color: PALETTE[0], days: [], link: "", ...c, days: (c.days || []).map((dd) => ({ title: "", items: [], link: "", ...dd, items: (dd.items || []).map((a) => ({ booked: false, notes: "", price: null, cur: "EUR", att: [], tEnd: "", paidBy: "", link: "", ...a })) })) }));
@@ -232,8 +266,24 @@ export default function App({ tripId, tripName, onBack }) {
           if (typeof d.rate === "number") setRate(d.rate);
           if (typeof d.budget === "number") setBudget(d.budget);
           if (d.payerNames) setPayerNames({ ...PAYER_DEFAULT_NAMES, ...d.payerNames });
+          if (d.currency && d.currency.base) {
+            setCurrency({ base: d.currency.base, trip: d.currency.trip || d.currency.base });
+          } else {
+            /* Viajes creados antes de que la moneda fuera configurable: se guardaban
+               importes en EUR y en CNY. Si hay alguno en CNY, se conserva. */
+            const hasCNY = [
+              ...(Array.isArray(d.expenses) ? d.expenses : []),
+              ...(Array.isArray(d.itin) ? d.itin.flatMap((c) => (c.days || []).flatMap((x) => x.items || [])) : []),
+            ].some((x) => x && x.cur === "CNY");
+            setCurrency({ base: "EUR", trip: hasCNY ? "CNY" : "EUR" });
+          }
         }
-      } catch (e) {}
+      } catch (e) {
+        /* Si la carga falla NO se puede hidratar: al hacerlo, el guardado
+           automático escribiría un viaje vacío encima del real. Mejor avisar. */
+        setLoadErr((e && e.message) || "No se ha podido cargar el viaje.");
+        return;
+      }
       try {
         const lst = await store.list(ATT_PREFIX);
         const keys = (lst && lst.keys) || [];
@@ -246,16 +296,29 @@ export default function App({ tripId, tripName, onBack }) {
       } catch (e) {}
       setHydrated(true);
     })();
-  }, []);
+  }, [reloadKey]);
 
   /* guardar */
   useEffect(() => {
     if (!hydrated) return;
     if (saveT.current) clearTimeout(saveT.current);
     saveT.current = setTimeout(async () => {
-      try { await store.set(STORAGE_KEY, JSON.stringify({ tripTitle, itin, bookings, packing, expenses, docsChk, rate, budget, tasks, experiences, diary, payerNames })); } catch (e) {}
+      try {
+        /* Viajes compartidos: si otra persona ha guardado desde que cargamos,
+           no pisamos su versión; avisamos para recargar. */
+        try {
+          const r = await store.get(STORAGE_KEY);
+          const remote = r && r.value ? (JSON.parse(r.value).savedAt || null) : null;
+          if (remote && lastStamp.current && remote !== lastStamp.current) { setConflict(true); return; }
+        } catch (e) {}
+
+        const savedAt = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        await store.set(STORAGE_KEY, JSON.stringify({ tripTitle, itin, bookings, packing, expenses, docsChk, rate, budget, tasks, experiences, diary, payerNames, currency, savedAt }));
+        lastStamp.current = savedAt;
+        setSaveErr(false);
+      } catch (e) { setSaveErr(true); }
     }, 400);
-  }, [tripTitle, itin, bookings, packing, expenses, docsChk, rate, budget, tasks, experiences, diary, payerNames, hydrated]);
+  }, [tripTitle, itin, bookings, packing, expenses, docsChk, rate, budget, tasks, experiences, diary, payerNames, currency, hydrated]);
 
   /* al entrar en la Ruta, ir automáticamente al día de hoy (o al más próximo) */
   useEffect(() => {
@@ -362,7 +425,7 @@ export default function App({ tripId, tripName, onBack }) {
   const addActivity = (cityId, dayId) => {
     if (!na.x.trim()) return;
     const id = dayId + "-a" + Math.random().toString(36).slice(2, 7);
-    setItin((prev) => prev.map((c) => c.id !== cityId ? c : { ...c, days: c.days.map((d) => d.id !== dayId ? d : { ...d, items: [...d.items, { id, t: na.t || "12:00", tEnd: "", x: na.x.trim(), type: na.type, booked: false, notes: "", price: null, cur: "EUR", paidBy: "", link: "", att: [] }] }) }));
+    setItin((prev) => prev.map((c) => c.id !== cityId ? c : { ...c, days: c.days.map((d) => d.id !== dayId ? d : { ...d, items: [...d.items, { id, t: na.t || "12:00", tEnd: "", x: na.x.trim(), type: na.type, booked: false, notes: "", price: null, cur: currency.base, paidBy: "", link: "", att: [] }] }) }));
     setNa({ t: "12:00", x: "", type: "cultura" });
     setAddActFor(null);
   };
@@ -461,8 +524,9 @@ export default function App({ tripId, tripName, onBack }) {
   const addExpense = () => {
     const amt = parseFloat(String(ne.amount).replace(",", "."));
     if (!amt || amt <= 0) return;
-    setExpenses((x) => [{ id: "e" + Date.now(), ...ne, amount: amt }, ...x]);
-    setNe({ cat: ne.cat, desc: "", amount: "", cur: ne.cur, date: ne.date, paidBy: ne.paidBy, link: "" });
+    const cur = curOptions.includes(ne.cur) ? ne.cur : currency.base;
+    setExpenses((x) => [{ id: "e" + Date.now(), ...ne, cur, amount: amt }, ...x]);
+    setNe({ cat: ne.cat, desc: "", amount: "", cur, date: ne.date, paidBy: ne.paidBy, link: "" });
   };
   const addPack = () => {
     if (!np.item.trim()) return;
@@ -565,23 +629,36 @@ export default function App({ tripId, tripName, onBack }) {
   };
 
   /* ---- derivados ---- */
-  const eurOf = (amount, cur) => { const n = parseFloat(String(amount).replace(",", ".")) || 0; return cur === "CNY" ? n / (rate || 1) : n; };
+  /* Los importes se guardan en su moneda original y se convierten a la base para sumar. */
+  const twoCurrencies = !!currency.trip && currency.trip !== currency.base;
+  const money = (n) => fmtAmount(n, currency.base);
+  const toBase = (amount, cur) => {
+    const n = parseFloat(String(amount).replace(",", ".")) || 0;
+    return twoCurrencies && cur === currency.trip ? n / (rate || 1) : n;
+  };
+  /* Selector de moneda de un importe: solo ofrece las dos del viaje. */
+  const curOptions = twoCurrencies ? [currency.base, currency.trip] : [currency.base];
+  const renderCurSelect = (value, onChange) => (
+    <select value={curOptions.includes(value) ? value : currency.base} onChange={(e) => onChange(e.target.value)} style={{ ...inp, width: "auto" }}>
+      {curOptions.map((c) => <option key={c} value={c}>{symOf(c)} {c}</option>)}
+    </select>
+  );
   const allDays = itin.flatMap((c) => c.days);
   const allActs = itin.flatMap((c) => c.days.flatMap((d) => d.items));
   const actsBooked = allActs.filter((a) => a.booked).length;
   const dates = allDays.filter((d) => d.date).map((d) => d.date).sort();
   const minDate = dates[0] || null, maxDate = dates[dates.length - 1] || null;
   const routeExpenses = itin.flatMap((c) => c.days.flatMap((d) => d.items.filter((a) => a.price && a.price > 0).map((a) => ({ id: a.id, cityId: c.id, dayId: d.id, name: a.x || c.city, city: c.city, date: d.date, cat: TYPE_TO_CAT[a.type] || "Actividades", amount: a.price, cur: a.cur || "EUR", paidBy: a.paidBy || "" }))));
-  const manualTotal = expenses.reduce((s, e) => s + eurOf(e.amount, e.cur), 0);
-  const routeTotal = routeExpenses.reduce((s, e) => s + eurOf(e.amount, e.cur), 0);
+  const manualTotal = expenses.reduce((s, e) => s + toBase(e.amount, e.cur), 0);
+  const routeTotal = routeExpenses.reduce((s, e) => s + toBase(e.amount, e.cur), 0);
   const totalSpent = manualTotal + routeTotal;
   const catTotals = {};
-  [...expenses.map((e) => ({ cat: e.cat, v: eurOf(e.amount, e.cur) })), ...routeExpenses.map((e) => ({ cat: e.cat, v: eurOf(e.amount, e.cur) }))].forEach(({ cat, v }) => { catTotals[cat] = (catTotals[cat] || 0) + v; });
+  [...expenses.map((e) => ({ cat: e.cat, v: toBase(e.amount, e.cur) })), ...routeExpenses.map((e) => ({ cat: e.cat, v: toBase(e.amount, e.cur) }))].forEach(({ cat, v }) => { catTotals[cat] = (catTotals[cat] || 0) + v; });
   const pieData = EXP_CATS.map((c) => ({ name: c, value: catTotals[c] || 0 })).filter((d) => d.value > 0);
   /* balance entre Fa y Rubén: reparto 50/50 de todo lo que tenga pagador asignado */
   const paidBy = { fa: 0, ruben: 0 };
   let unassignedPaid = 0;
-  [...expenses.map((e) => ({ who: e.paidBy, v: eurOf(e.amount, e.cur) })), ...routeExpenses.map((e) => ({ who: e.paidBy, v: eurOf(e.amount, e.cur) }))].forEach(({ who, v }) => {
+  [...expenses.map((e) => ({ who: e.paidBy, v: toBase(e.amount, e.cur) })), ...routeExpenses.map((e) => ({ who: e.paidBy, v: toBase(e.amount, e.cur) }))].forEach(({ who, v }) => {
     if (who === "fa" || who === "ruben") paidBy[who] += v; else unassignedPaid += v;
   });
   const sharedTotal = paidBy.fa + paidBy.ruben;
@@ -639,7 +716,7 @@ export default function App({ tripId, tripName, onBack }) {
     h += `<section><h2>Resumen</h2>`;
     h += `<p><b>${esc(routeLabel)}</b></p>`;
     h += `<p>${esc(datesLabel)} · ${dates.length} día${dates.length === 1 ? "" : "s"} · ${itin.length} parada${itin.length === 1 ? "" : "s"}</p>`;
-    h += `<p>Gastado: <b>${esc(eur(totalSpent))}</b>${budget > 0 ? ` de ${esc(eur(budget))}` : ""}</p>`;
+    h += `<p>Gastado: <b>${esc(money(totalSpent))}</b>${budget > 0 ? ` de ${esc(money(budget))}` : ""}</p>`;
     h += `<p>Reservas confirmadas: ${bookConfirmed}/${bookings.length} · Maleta: ${packDone}/${packing.length} · Actividades reservadas: ${actsBooked}/${allActs.length}</p>`;
     h += `</section>`;
 
@@ -658,7 +735,7 @@ export default function App({ tripId, tripName, onBack }) {
         d.items.forEach((a) => {
           const time = a.t ? (a.tEnd ? `${a.t}–${a.tEnd}` : a.t) : "—";
           const bits = [];
-          if (a.price > 0) bits.push(a.cur === "CNY" ? `¥${a.price}` : eur(a.price));
+          if (a.price > 0) bits.push(fmtAmount(a.price, a.cur || currency.base));
           if (a.paidBy) bits.push(`Pagó ${payerNames[a.paidBy]}`);
           if (a.booked) bits.push("✔ comprado/reservado");
           h += `<div class="act"><span class="time">${esc(time)}</span> <b>${esc(a.x || "(sin título)")}</b> <span class="tag">${esc(TYPE[a.type] ? TYPE[a.type].l : a.type)}</span>`;
@@ -676,18 +753,18 @@ export default function App({ tripId, tripName, onBack }) {
 
     // 3) Gastos
     h += `<section><h2>Gastos</h2>`;
-    h += `<p>Total: <b>${esc(eur(totalSpent))}</b> (Ruta ${esc(eur(routeTotal))} · Manual ${esc(eur(manualTotal))})</p>`;
-    if (budget > 0) h += `<p>Presupuesto: ${esc(eur(budget))} · ${totalSpent > budget ? "Excedido en" : "Queda"} ${esc(eur(Math.abs(budget - totalSpent)))}</p>`;
-    h += `<p>Cambio: 1 € ≈ ${esc(rate)} ¥</p>`;
+    h += `<p>Total: <b>${esc(money(totalSpent))}</b> (Ruta ${esc(money(routeTotal))} · Manual ${esc(money(manualTotal))})</p>`;
+    if (budget > 0) h += `<p>Presupuesto: ${esc(money(budget))} · ${totalSpent > budget ? "Excedido en" : "Queda"} ${esc(money(Math.abs(budget - totalSpent)))}</p>`;
+    if (twoCurrencies) h += `<p>Cambio: 1 ${esc(currency.base)} ≈ ${esc(rate)} ${esc(currency.trip)}</p>`;
     h += `<h3>Balance ${esc(payerNames.fa)} · ${esc(payerNames.ruben)}</h3>`;
-    h += `<p>${esc(payerNames.fa)} ha pagado ${esc(eur(paidBy.fa))} · ${esc(payerNames.ruben)} ha pagado ${esc(eur(paidBy.ruben))}</p>`;
+    h += `<p>${esc(payerNames.fa)} ha pagado ${esc(money(paidBy.fa))} · ${esc(payerNames.ruben)} ha pagado ${esc(money(paidBy.ruben))}</p>`;
     if (sharedTotal <= 0) h += `<p class="sub">Sin gastos con pagador asignado.</p>`;
     else if (balanceAmount < 0.005) h += `<p><b>Estáis en paz.</b></p>`;
-    else h += `<p><b>${esc(payerNames[balanceDebtor])} debe ${esc(eur(balanceAmount))} a ${esc(payerNames[balanceCreditor])}</b></p>`;
-    if (unassignedPaid > 0.005) h += `<p class="sub">${esc(eur(unassignedPaid))} sin asignar a una persona.</p>`;
-    if (pieData.length) { h += `<h3>Por categoría</h3><ul>`; pieData.forEach((d) => h += `<li>${esc(d.name)}: ${esc(eur(d.value))}</li>`); h += `</ul>`; }
-    if (expenses.length) { h += `<h3>Gastos manuales</h3><ul>`; expenses.forEach((e) => h += `<li>${esc(e.desc || e.cat)} — ${esc(e.cat)} · ${esc(fmtShort(e.date))} · ${e.paidBy ? esc(payerNames[e.paidBy]) : "—"} · <b>${esc(eur(eurOf(e.amount, e.cur)))}</b>${e.cur === "CNY" ? ` (¥${esc(e.amount)})` : ""}${e.link ? linkHtml(e.link) : ""}</li>`); h += `</ul>`; }
-    if (routeExpenses.length) { h += `<h3>Gastos de la ruta</h3><ul>`; routeExpenses.forEach((e) => h += `<li>${esc(e.name)} — ${esc(e.city)}${e.date ? ` · ${esc(fmtShort(e.date))}` : ""} · ${e.paidBy ? esc(payerNames[e.paidBy]) : "—"} · <b>${esc(eur(eurOf(e.amount, e.cur)))}</b></li>`); h += `</ul>`; }
+    else h += `<p><b>${esc(payerNames[balanceDebtor])} debe ${esc(money(balanceAmount))} a ${esc(payerNames[balanceCreditor])}</b></p>`;
+    if (unassignedPaid > 0.005) h += `<p class="sub">${esc(money(unassignedPaid))} sin asignar a una persona.</p>`;
+    if (pieData.length) { h += `<h3>Por categoría</h3><ul>`; pieData.forEach((d) => h += `<li>${esc(d.name)}: ${esc(money(d.value))}</li>`); h += `</ul>`; }
+    if (expenses.length) { h += `<h3>Gastos manuales</h3><ul>`; expenses.forEach((e) => h += `<li>${esc(e.desc || e.cat)} — ${esc(e.cat)} · ${esc(fmtShort(e.date))} · ${e.paidBy ? esc(payerNames[e.paidBy]) : "—"} · <b>${esc(money(toBase(e.amount, e.cur)))}</b>${e.cur !== currency.base ? ` (${esc(fmtAmount(e.amount, e.cur))})` : ""}${e.link ? linkHtml(e.link) : ""}</li>`); h += `</ul>`; }
+    if (routeExpenses.length) { h += `<h3>Gastos de la ruta</h3><ul>`; routeExpenses.forEach((e) => h += `<li>${esc(e.name)} — ${esc(e.city)}${e.date ? ` · ${esc(fmtShort(e.date))}` : ""} · ${e.paidBy ? esc(payerNames[e.paidBy]) : "—"} · <b>${esc(money(toBase(e.amount, e.cur)))}</b></li>`); h += `</ul>`; }
     h += `</section>`;
 
     // 4) Reservas
@@ -836,7 +913,7 @@ export default function App({ tripId, tripName, onBack }) {
         </Card>
         <Card style={{ padding: 16 }}>
           <div style={{ color: C.sub, fontSize: 12, fontWeight: 600 }}>Gastado</div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: C.ink, lineHeight: 1.1 }}>{eur(totalSpent)}</div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: C.ink, lineHeight: 1.1 }}>{money(totalSpent)}</div>
           <div style={{ color: C.sub, fontSize: 11 }}>{expenses.length + routeExpenses.length} gasto{expenses.length + routeExpenses.length === 1 ? "" : "s"}</div>
         </Card>
       </div>
@@ -923,7 +1000,7 @@ export default function App({ tripId, tripName, onBack }) {
 
       {showAddCity && (
         <Card style={{ padding: 14, marginBottom: 14 }}>
-          <input value={nc.name} onChange={(e) => setNc({ ...nc, name: e.target.value })} placeholder="Nombre de la parada (p. ej. Pekín)" style={{ ...inp, marginBottom: 8 }} />
+          <input value={nc.name} onChange={(e) => setNc({ ...nc, name: e.target.value })} placeholder="Nombre de la parada (p. ej. Roma)" style={{ ...inp, marginBottom: 8 }} />
           <div className="flex gap-2 mb-2">
             <div className="flex-1">
               <div style={{ fontSize: 11, color: C.sub, marginBottom: 4 }}>Primer día</div>
@@ -1025,7 +1102,7 @@ export default function App({ tripId, tripName, onBack }) {
                                       </div>
                                       {(a.price > 0 || (a.att && a.att.length) || a.notes || a.paidBy || a.link) && (
                                         <div className="flex items-center gap-2.5 mt-1">
-                                          {a.price > 0 && <span style={{ ...mono, fontSize: 11, color: C.redDeep, fontWeight: 700 }}>{a.cur === "CNY" ? `¥${a.price}` : eur(a.price)}</span>}
+                                          {a.price > 0 && <span style={{ ...mono, fontSize: 11, color: C.redDeep, fontWeight: 700 }}>{fmtAmount(a.price, a.cur || currency.base)}</span>}
                                           {a.paidBy && <span style={{ fontSize: 10.5, fontWeight: 700, color: PAYER_COLOR[a.paidBy] }}>{payerNames[a.paidBy]}</span>}
                                           {a.link && <Link2 size={12} color={C.sub} />}
                                           {a.att && a.att.length > 0 && <span className="flex items-center gap-0.5" style={{ fontSize: 11, color: C.sub }}><Paperclip size={11} />{a.att.length}</span>}
@@ -1088,20 +1165,20 @@ export default function App({ tripId, tripName, onBack }) {
     <div className="px-5 pb-6">
       <div className="pt-1 pb-3">
         <div style={{ fontSize: 22, fontWeight: 800, color: C.ink }}>Gastos</div>
-        <div style={{ color: C.sub, fontSize: 13 }}>Incluye los precios de las actividades de la ruta. Cambio: 1 € ≈ {rate} ¥</div>
+        <div style={{ color: C.sub, fontSize: 13 }}>Incluye los precios de las actividades de la ruta.{twoCurrencies ? ` Cambio: 1 ${currency.base} ≈ ${rate} ${currency.trip}` : ""}</div>
       </div>
 
       <Card style={{ padding: 18, marginBottom: 14 }}>
         <div className="flex justify-between items-end mb-3">
           <div>
             <div style={{ color: C.sub, fontSize: 12, fontWeight: 600 }}>Total</div>
-            <div style={{ fontSize: 34, fontWeight: 800, color: C.ink }}>{eur(totalSpent)}</div>
-            <div style={{ color: C.sub, fontSize: 11 }}>Ruta {eur(routeTotal)} · Manual {eur(manualTotal)}</div>
+            <div style={{ fontSize: 34, fontWeight: 800, color: C.ink }}>{money(totalSpent)}</div>
+            <div style={{ color: C.sub, fontSize: 11 }}>Ruta {money(routeTotal)} · Manual {money(manualTotal)}</div>
           </div>
           {budget > 0 && (
             <div style={{ textAlign: "right" }}>
-              <div style={{ color: C.sub, fontSize: 11 }}>de {eur(budget)}</div>
-              <div style={{ color: totalSpent > budget ? C.red : C.jade, fontSize: 13, fontWeight: 700 }}>{totalSpent > budget ? "+" : ""}{eur(Math.abs(budget - totalSpent))}</div>
+              <div style={{ color: C.sub, fontSize: 11 }}>de {money(budget)}</div>
+              <div style={{ color: totalSpent > budget ? C.red : C.jade, fontSize: 13, fontWeight: 700 }}>{totalSpent > budget ? "+" : ""}{money(Math.abs(budget - totalSpent))}</div>
             </div>
           )}
         </div>
@@ -1117,7 +1194,7 @@ export default function App({ tripId, tripName, onBack }) {
                 <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={42} outerRadius={70} paddingAngle={2}>
                   {pieData.map((d) => <Cell key={d.name} fill={EXP_COLORS[d.name]} />)}
                 </Pie>
-                <Tooltip formatter={(v) => eur(v)} />
+                <Tooltip formatter={(v) => money(v)} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -1126,7 +1203,7 @@ export default function App({ tripId, tripName, onBack }) {
           <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 justify-center">
             {pieData.map((d) => (
               <div key={d.name} className="flex items-center gap-1.5" style={{ fontSize: 11, color: C.sub }}>
-                <span style={{ width: 9, height: 9, borderRadius: 99, background: EXP_COLORS[d.name] }} /> {d.name} {eur(d.value)}
+                <span style={{ width: 9, height: 9, borderRadius: 99, background: EXP_COLORS[d.name] }} /> {d.name} {money(d.value)}
               </div>
             ))}
           </div>
@@ -1151,7 +1228,7 @@ export default function App({ tripId, tripName, onBack }) {
           {PAYERS.map((p) => (
             <div key={p} className="flex-1 rounded-xl px-3 py-2.5" style={{ background: PAYER_COLOR[p] + "12", border: `1px solid ${PAYER_COLOR[p]}33` }}>
               <div style={{ fontSize: 11, color: C.sub, fontWeight: 600 }}>{payerNames[p]} ha pagado</div>
-              <div style={{ ...mono, fontSize: 17, fontWeight: 800, color: PAYER_COLOR[p] }}>{eur(paidBy[p])}</div>
+              <div style={{ ...mono, fontSize: 17, fontWeight: 800, color: PAYER_COLOR[p] }}>{money(paidBy[p])}</div>
             </div>
           ))}
         </div>
@@ -1163,12 +1240,12 @@ export default function App({ tripId, tripName, onBack }) {
           ) : (
             <div>
               <span style={{ fontSize: 13, color: "#9DB2C0" }}><b style={{ color: "#fff" }}>{payerNames[balanceDebtor]}</b> debe a <b style={{ color: "#fff" }}>{payerNames[balanceCreditor]}</b></span>
-              <div style={{ ...mono, fontSize: 26, fontWeight: 800, color: "#fff", lineHeight: 1.1 }}>{eur(balanceAmount)}</div>
+              <div style={{ ...mono, fontSize: 26, fontWeight: 800, color: "#fff", lineHeight: 1.1 }}>{money(balanceAmount)}</div>
             </div>
           )}
         </div>
         {unassignedPaid > 0.005 && (
-          <div style={{ fontSize: 11, color: C.sub, marginTop: 8, textAlign: "center" }}>{eur(unassignedPaid)} sin asignar a una persona (no cuentan en el balance).</div>
+          <div style={{ fontSize: 11, color: C.sub, marginTop: 8, textAlign: "center" }}>{money(unassignedPaid)} sin asignar a una persona (no cuentan en el balance).</div>
         )}
       </Card>
 
@@ -1187,9 +1264,7 @@ export default function App({ tripId, tripName, onBack }) {
         </div>
         <div className="flex gap-2">
           <input value={ne.amount} onChange={(e) => setNe({ ...ne, amount: e.target.value })} placeholder="0,00" inputMode="decimal" style={{ ...inp, flex: 1, ...mono }} />
-          <select value={ne.cur} onChange={(e) => setNe({ ...ne, cur: e.target.value })} style={{ ...inp, width: "auto" }}>
-            <option value="EUR">€ EUR</option><option value="CNY">¥ CNY</option>
-          </select>
+          {renderCurSelect(ne.cur, (v) => setNe({ ...ne, cur: v }))}
           <button onClick={addExpense} className="rounded-lg px-4 flex items-center justify-center" style={{ background: C.red, color: "#fff" }}><Plus size={20} /></button>
         </div>
       </Card>
@@ -1205,8 +1280,8 @@ export default function App({ tripId, tripName, onBack }) {
                   <div style={{ fontSize: 11, color: C.sub }}>{e.cat} · {dparts(e.date).dd} {dparts(e.date).mmm}{e.paidBy ? <> · <b style={{ color: PAYER_COLOR[e.paidBy] }}>{payerNames[e.paidBy]}</b></> : ""}{e.link ? <Link2 size={11} color={C.sub} style={{ display: "inline", verticalAlign: "-1px", marginLeft: 4 }} /> : null}</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ ...mono, fontSize: 14, fontWeight: 700, color: C.ink }}>{eur(eurOf(e.amount, e.cur))}</div>
-                  {e.cur === "CNY" && <div style={{ ...mono, fontSize: 10, color: C.sub }}>¥{e.amount}</div>}
+                  <div style={{ ...mono, fontSize: 14, fontWeight: 700, color: C.ink }}>{money(toBase(e.amount, e.cur))}</div>
+                  {e.cur !== currency.base && <div style={{ ...mono, fontSize: 10, color: C.sub }}>{fmtAmount(e.amount, e.cur)}</div>}
                 </div>
                 <ChevronRight size={16} color={C.line} style={{ flexShrink: 0 }} />
               </button>
@@ -1230,7 +1305,7 @@ export default function App({ tripId, tripName, onBack }) {
                   <div style={{ fontSize: 14, color: C.ink, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.name}</div>
                   <div style={{ fontSize: 11, color: C.sub }}>{e.city}{e.date ? ` · ${dparts(e.date).dd} ${dparts(e.date).mmm}` : ""}{e.paidBy ? <> · <b style={{ color: PAYER_COLOR[e.paidBy] }}>{payerNames[e.paidBy]}</b></> : ""}</div>
                 </div>
-                <div style={{ ...mono, fontSize: 14, fontWeight: 700, color: C.ink }}>{eur(eurOf(e.amount, e.cur))}</div>
+                <div style={{ ...mono, fontSize: 14, fontWeight: 700, color: C.ink }}>{money(toBase(e.amount, e.cur))}</div>
                 <ChevronRight size={15} color={C.line} />
               </button>
             ))}
@@ -1239,13 +1314,29 @@ export default function App({ tripId, tripName, onBack }) {
       )}
 
       <Card style={{ padding: 14 }}>
-        <div className="flex items-center justify-between">
-          <span style={{ fontSize: 13, color: C.sub }}>Presupuesto objetivo (€)</span>
-          <input value={budget || ""} onChange={(e) => setBudget(parseFloat(e.target.value) || 0)} placeholder="0" inputMode="decimal" style={{ ...inp, width: 110, textAlign: "right", ...mono, padding: "6px 12px" }} />
+        <div style={{ fontWeight: 700, color: C.ink, fontSize: 14, marginBottom: 10 }}>Ajustes del viaje</div>
+        <div className="flex items-center justify-between gap-3 mb-2">
+          <span style={{ fontSize: 13, color: C.sub }}>Mi moneda</span>
+          <select value={currency.base} onChange={(e) => setCurrency((c) => ({ ...c, base: e.target.value }))} style={{ ...inp, width: "auto" }}>
+            {CURRENCIES.map(([c, s, n]) => <option key={c} value={c}>{s} {c} · {n}</option>)}
+          </select>
         </div>
-        <div className="flex items-center justify-between mt-2">
-          <span style={{ fontSize: 13, color: C.sub }}>Cambio 1 € = ¥</span>
-          <input value={rate} onChange={(e) => setRate(parseFloat(String(e.target.value).replace(",", ".")) || 0)} inputMode="decimal" style={{ ...inp, width: 110, textAlign: "right", ...mono, padding: "6px 12px" }} />
+        <div className="flex items-center justify-between gap-3 mb-2">
+          <span style={{ fontSize: 13, color: C.sub }}>Moneda del destino</span>
+          <select value={currency.trip} onChange={(e) => setCurrency((c) => ({ ...c, trip: e.target.value }))} style={{ ...inp, width: "auto" }}>
+            <option value="">La misma</option>
+            {CURRENCIES.filter(([c]) => c !== currency.base).map(([c, s, n]) => <option key={c} value={c}>{s} {c} · {n}</option>)}
+          </select>
+        </div>
+        {twoCurrencies && (
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <span style={{ fontSize: 13, color: C.sub }}>1 {currency.base} = {currency.trip}</span>
+            <input value={rate} onChange={(e) => setRate(parseFloat(String(e.target.value).replace(",", ".")) || 0)} inputMode="decimal" style={{ ...inp, width: 110, textAlign: "right", ...mono, padding: "6px 12px" }} />
+          </div>
+        )}
+        <div className="flex items-center justify-between gap-3">
+          <span style={{ fontSize: 13, color: C.sub }}>Presupuesto ({symOf(currency.base)})</span>
+          <input value={budget || ""} onChange={(e) => setBudget(parseFloat(e.target.value) || 0)} placeholder="0" inputMode="decimal" style={{ ...inp, width: 110, textAlign: "right", ...mono, padding: "6px 12px" }} />
         </div>
       </Card>
     </div>
@@ -1275,7 +1366,7 @@ export default function App({ tripId, tripName, onBack }) {
               </select>
               <input type="date" value={nb.date} onChange={(e) => setNb({ ...nb, date: e.target.value })} style={{ ...inp, width: "auto", ...mono, fontSize: 12, padding: "8px 8px" }} />
             </div>
-            <input value={nb.title} onChange={(e) => setNb({ ...nb, title: e.target.value })} placeholder="Título (p. ej. Hotel en Pekín)" style={{ ...inp, marginBottom: 8 }} />
+            <input value={nb.title} onChange={(e) => setNb({ ...nb, title: e.target.value })} placeholder="Título (p. ej. Hotel en el centro)" style={{ ...inp, marginBottom: 8 }} />
             <div className="flex gap-2">
               <input value={nb.detail} onChange={(e) => setNb({ ...nb, detail: e.target.value })} placeholder="Detalle" style={{ ...inp, flex: 1 }} />
               <button onClick={addBooking} className="rounded-lg px-4" style={{ background: C.ink, color: "#fff", fontSize: 13, fontWeight: 600 }}>Guardar</button>
@@ -1367,11 +1458,11 @@ export default function App({ tripId, tripName, onBack }) {
     <div className="px-5 pb-6">
       <div className="pt-1 pb-3">
         <div style={{ fontSize: 22, fontWeight: 800, color: C.ink }}>Documentos y consejos</div>
-        <div style={{ color: C.sub, fontSize: 13 }}>Lo que necesitas para entrar y moverte sin sustos.</div>
+        <div style={{ color: C.sub, fontSize: 13 }}>Lo básico que conviene repasar antes de cualquier viaje.</div>
       </div>
       <div className="rounded-xl px-4 py-3 mb-4 flex gap-3" style={{ background: "#E2F3F3", border: `1px solid ${C.jade}44` }}>
-        <Check size={18} color={C.jade} style={{ marginTop: 1, flexShrink: 0 }} />
-        <div style={{ fontSize: 13, color: "#0E5C5C" }}><b>Sin visado.</b> España tiene exención hasta el 31/12/2026 para estancias de máximo 30 días consecutivos.</div>
+        <AlertCircle size={18} color={C.jade} style={{ marginTop: 1, flexShrink: 0 }} />
+        <div style={{ fontSize: 13, color: "#0E5C5C" }}>Los requisitos de entrada <b>cambian según tu nacionalidad y tu destino</b>. Confírmalos siempre en la web oficial de Exteriores de tu país antes de comprar los billetes.</div>
       </div>
       <div className="px-1 mb-2" style={{ color: C.sub, fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Antes de salir</div>
       <Card style={{ overflow: "hidden", marginBottom: 16 }}>
@@ -1400,6 +1491,12 @@ export default function App({ tripId, tripName, onBack }) {
             </div>
           </Card>
         ))}
+      </div>
+
+      <div className="flex items-center justify-center gap-4 mt-6" style={{ fontSize: 12.5 }}>
+        <a href="/privacidad.html" target="_blank" rel="noopener noreferrer" style={{ color: C.sub }}>Política de privacidad</a>
+        <span style={{ color: C.line }}>·</span>
+        <a href="/eliminar-cuenta.html" target="_blank" rel="noopener noreferrer" style={{ color: C.sub }}>Eliminar mi cuenta</a>
       </div>
     </div>
   );
@@ -1624,7 +1721,7 @@ export default function App({ tripId, tripName, onBack }) {
                 <Field label="Precio" hint="Se suma automáticamente a tus gastos.">
                   <div className="flex gap-2">
                     <input value={act.price == null ? "" : act.price} onChange={(e) => { const v = e.target.value.replace(",", "."); patchAct({ price: v === "" ? null : (parseFloat(v) || 0) }); }} placeholder="0,00" inputMode="decimal" style={{ ...inp, flex: 1, ...mono }} />
-                    <select value={act.cur} onChange={(e) => patchAct({ cur: e.target.value })} style={{ ...inp, width: "auto" }}><option value="EUR">€ EUR</option><option value="CNY">¥ CNY</option></select>
+                    {renderCurSelect(act.cur, (v) => patchAct({ cur: v }))}
                   </div>
                 </Field>
                 <button onClick={() => patchAct({ booked: !act.booked })} className="w-full flex items-center gap-3 rounded-xl px-4 py-3 mb-3" style={{ background: C.card, border: `1px solid ${act.booked ? C.jade + "66" : C.line}` }}>
@@ -1715,7 +1812,7 @@ export default function App({ tripId, tripName, onBack }) {
                 <Field label="Importe">
                   <div className="flex gap-2">
                     <input value={exp.amount} onChange={(e) => patchExpense({ amount: e.target.value })} placeholder="0,00" inputMode="decimal" style={{ ...inp, flex: 1, ...mono }} />
-                    <select value={exp.cur} onChange={(e) => patchExpense({ cur: e.target.value })} style={{ ...inp, width: "auto" }}><option value="EUR">€ EUR</option><option value="CNY">¥ CNY</option></select>
+                    {renderCurSelect(exp.cur, (v) => patchExpense({ cur: v }))}
                   </div>
                 </Field>
                 <Field label="¿Quién paga?" hint="Se usa para el balance de gastos entre Fa y Rubén.">
@@ -1742,6 +1839,29 @@ export default function App({ tripId, tripName, onBack }) {
   };
 
   /* ============ shell ============ */
+  if (loadErr) {
+    /* Importante: mientras haya error de carga NO se hidrata, así el guardado
+       automático no puede sobrescribir el viaje real con uno vacío. */
+    return (
+      <div style={{ background: C.paper, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif" }}>
+        <div style={{ maxWidth: 380, textAlign: "center" }}>
+          <div className="flex items-center justify-center rounded-2xl" style={{ width: 56, height: 56, background: C.card, border: `1px solid ${C.line}`, margin: "0 auto 14px" }}>
+            <AlertCircle size={26} color={C.red} />
+          </div>
+          <div style={{ fontWeight: 800, color: C.ink, fontSize: 17 }}>No hemos podido cargar tu viaje</div>
+          <div style={{ color: C.sub, fontSize: 14, marginTop: 6, lineHeight: 1.5 }}>
+            Comprueba tu conexión e inténtalo otra vez. Tus datos siguen guardados: no se ha modificado nada.
+          </div>
+          <button onClick={() => setReloadKey((k) => k + 1)} className="rounded-xl" style={{ marginTop: 18, background: C.red, color: "#fff", border: "none", padding: "11px 22px", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+            Reintentar
+          </button>
+          {onBack && (
+            <div><button onClick={onBack} style={{ marginTop: 12, background: "none", border: "none", color: C.sub, fontSize: 13, cursor: "pointer" }}>Volver a mis viajes</button></div>
+          )}
+        </div>
+      </div>
+    );
+  }
   if (!hydrated) {
     return <div style={{ background: C.paper, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: C.sub }}>Cargando tu viaje…</div>;
   }
@@ -1760,7 +1880,23 @@ export default function App({ tripId, tripName, onBack }) {
 
   return (
     <div style={{ background: C.paper, minHeight: "100vh", maxWidth: 480, margin: "0 auto", fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif", color: C.ink }}>
-      <div style={{ position: "sticky", top: 0, zIndex: 30, background: "rgba(245,241,234,0.92)", backdropFilter: "blur(8px)", borderBottom: `1px solid ${C.line}` }}>
+      <div style={{ position: "sticky", top: 0, zIndex: 30, background: "rgba(237,241,244,0.92)", backdropFilter: "blur(8px)", borderBottom: `1px solid ${C.line}` }}>
+        {saveErr && !conflict && (
+          <div className="flex items-center gap-2" style={{ background: C.red, color: "#fff", padding: "7px 14px", fontSize: 12.5, fontWeight: 600 }}>
+            <AlertCircle size={15} style={{ flexShrink: 0 }} />
+            <span>Sin guardar: revisa tu conexión. No cierres la app.</span>
+          </div>
+        )}
+        {conflict && (
+          <div className="flex items-center gap-2" style={{ background: C.gold, color: "#5A3E0B", padding: "7px 14px", fontSize: 12.5, fontWeight: 600 }}>
+            <AlertCircle size={15} style={{ flexShrink: 0 }} />
+            <span className="flex-1">Otra persona ha editado este viaje.</span>
+            <button onClick={() => { setConflict(false); lastStamp.current = null; setHydrated(false); setReloadKey((k) => k + 1); }}
+              style={{ background: "#5A3E0B", color: "#fff", border: "none", borderRadius: 7, padding: "3px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+              Recargar
+            </button>
+          </div>
+        )}
         <div className="flex items-center gap-3" style={{ padding: "10px 14px" }}>
           <button onClick={() => setDrawerOpen(true)} aria-label="Abrir menú" className="flex items-center justify-center" style={{ width: 40, height: 40, borderRadius: 10, background: C.card, border: `1px solid ${C.line}`, color: C.ink, flexShrink: 0 }}>
             <Menu size={20} />

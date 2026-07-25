@@ -6,6 +6,7 @@ import {
   listSharedTrips, listIncomingInvites, acceptInvite, rejectInvite, leaveSharedTrip,
   inviteToTrip, listTripShares, revokeShare,
 } from "./sharingApi";
+import { deleteAccount } from "./accountApi";
 
 const C = { ink: "#0B2239", sub: "#5B6B78", paper: "#EDF1F4", card: "#FFFFFF", red: "#FF5A3C", redDeep: "#E23B1E", jade: "#1CA6A6", gold: "#FFC857", line: "#DCE4EA" };
 const Card = ({ children, style }) => (
@@ -116,6 +117,10 @@ export default function Trips({ session, onOpen }) {
   const [confirmDel, setConfirmDel] = useState(null);
   const [confirmLeave, setConfirmLeave] = useState(null);
   const [shareTrip, setShareTrip] = useState(null);
+  const [delAccount, setDelAccount] = useState(false);
+  const [delText, setDelText] = useState("");
+  const [delBusy, setDelBusy] = useState(false);
+  const [delErr, setDelErr] = useState("");
 
   const email = session?.user?.email || "";
 
@@ -308,9 +313,61 @@ export default function Trips({ session, onOpen }) {
             )}
           </>
         )}
+
+        {/* Zona de cuenta: Google Play exige poder borrar la cuenta desde la app. */}
+        {!loading && (
+          <>
+            <SectionTitle icon={<UserPlus size={15} color={C.sub} />}>Tu cuenta</SectionTitle>
+            <Card style={{ padding: 14 }}>
+              <div style={{ fontSize: 13.5, color: C.ink, fontWeight: 600 }}>Eliminar mi cuenta</div>
+              <div style={{ color: C.sub, fontSize: 12.5, marginTop: 4, marginBottom: 10 }}>
+                Borra tu cuenta y todo su contenido: viajes, gastos, fotos, documentos y diario. Es permanente y no se puede deshacer.
+              </div>
+              <button onClick={() => { setDelAccount(true); setDelText(""); setDelErr(""); }}
+                style={{ ...btn, border: `1px solid ${C.line}`, color: C.red, borderRadius: 10, padding: "9px 14px", fontSize: 13, fontWeight: 700 }}>
+                Eliminar mi cuenta
+              </button>
+            </Card>
+          </>
+        )}
       </div>
 
       {shareTrip && <SharePanel trip={shareTrip} onClose={() => { setShareTrip(null); refresh(); }} />}
+
+      {delAccount && (
+        <div onClick={() => !delBusy && setDelAccount(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(11,34,57,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 70 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 380, background: C.paper, border: `1px solid ${C.line}`, borderRadius: 16, padding: 20 }}>
+            <div style={{ fontSize: 17, fontWeight: 800, color: C.ink, marginBottom: 8 }}>Eliminar tu cuenta</div>
+            <div style={{ fontSize: 13.5, color: C.sub, lineHeight: 1.5, marginBottom: 14 }}>
+              Se borrarán <b style={{ color: C.ink }}>todos tus viajes</b>, gastos, reservas, fotos, documentos y entradas del diario.
+              Esta acción <b style={{ color: C.ink }}>no se puede deshacer</b>.
+              <br /><br />
+              Si quieres guardar una copia, sal de aquí y usa <b style={{ color: C.ink }}>Exportar a PDF</b> dentro de cada viaje.
+            </div>
+            <div style={{ fontSize: 12.5, color: C.sub, marginBottom: 6 }}>Escribe <b style={{ color: C.ink }}>ELIMINAR</b> para confirmar:</div>
+            <input value={delText} onChange={(e) => setDelText(e.target.value)} autoFocus placeholder="ELIMINAR"
+              style={{ ...inp, marginBottom: 12 }} />
+            {delErr && <div style={{ color: C.red, fontSize: 12.5, marginBottom: 10 }}>{delErr}</div>}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setDelAccount(false)} disabled={delBusy}
+                style={{ ...btn, flex: 1, background: C.card, border: `1px solid ${C.line}`, color: C.sub, borderRadius: 10, padding: "10px 0", fontSize: 14, fontWeight: 600 }}>
+                Cancelar
+              </button>
+              <button
+                disabled={delBusy || delText.trim().toUpperCase() !== "ELIMINAR"}
+                onClick={async () => {
+                  setDelBusy(true); setDelErr("");
+                  try { await deleteAccount(); } // al borrarse la sesión, Root vuelve al login
+                  catch (e) { setDelErr(e.message || "No se pudo eliminar la cuenta."); setDelBusy(false); }
+                }}
+                style={{ ...btn, flex: 1, background: C.red, color: "#fff", borderRadius: 10, padding: "10px 0", fontSize: 14, fontWeight: 700, opacity: (delBusy || delText.trim().toUpperCase() !== "ELIMINAR") ? 0.5 : 1 }}>
+                {delBusy ? "Eliminando…" : "Eliminar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
