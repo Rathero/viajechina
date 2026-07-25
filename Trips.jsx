@@ -7,7 +7,7 @@ import {
   inviteToTrip, listTripShares, revokeShare,
 } from "./sharingApi";
 
-const C = { ink: "#26211C", sub: "#6F6358", paper: "#F5F1EA", card: "#FFFFFF", red: "#C0392B", redDeep: "#7E2A20", jade: "#2E7D6B", line: "#E5DCCF" };
+const C = { ink: "#0B2239", sub: "#5B6B78", paper: "#EDF1F4", card: "#FFFFFF", red: "#FF5A3C", redDeep: "#E23B1E", jade: "#1CA6A6", gold: "#FFC857", line: "#DCE4EA" };
 const Card = ({ children, style }) => (
   <div style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 16, ...style }}>{children}</div>
 );

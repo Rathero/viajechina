@@ -9,20 +9,25 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { store } from "./store";
 
 /* ============ paleta y constantes ============ */
+/* Paleta de marca:
+   Primario  Azul petróleo #0B2239 -> ink (texto/superficies oscuras)
+   Secundario Turquesa     #1CA6A6 -> jade (éxito/confirmado/secundario)
+   Acento     Coral        #FF5A3C -> red (acción/acento principal)
+   Acento cálido Arena/Dorado #FFC857 -> gold */
 const C = {
-  ink: "#26211C", sub: "#6F6358", paper: "#F5F1EA", card: "#FFFFFF",
-  red: "#C0392B", redDeep: "#7E2A20", jade: "#2E7D6B", line: "#E5DCCF",
+  ink: "#0B2239", sub: "#5B6B78", paper: "#EDF1F4", card: "#FFFFFF",
+  red: "#FF5A3C", redDeep: "#E23B1E", jade: "#1CA6A6", gold: "#FFC857", line: "#DCE4EA",
 };
 const TYPE = {
-  historia: { c: "#9A6A2F", l: "Historia" },
-  cultura: { c: "#2E7D6B", l: "Cultura" },
-  naturaleza: { c: "#4F7A3A", l: "Naturaleza" },
-  tech: { c: "#3D5A98", l: "Tech" },
-  comida: { c: "#C0392B", l: "Comida" },
-  traslado: { c: "#8A8079", l: "Traslado" },
-  logistica: { c: "#A99F93", l: "Logística" },
+  historia: { c: "#C9962E", l: "Historia" },
+  cultura: { c: "#1CA6A6", l: "Cultura" },
+  naturaleza: { c: "#2E8F63", l: "Naturaleza" },
+  tech: { c: "#3D6FA6", l: "Tech" },
+  comida: { c: "#FF5A3C", l: "Comida" },
+  traslado: { c: "#7E8C95", l: "Traslado" },
+  logistica: { c: "#9BA8B0", l: "Logística" },
 };
-const PALETTE = ["#C0392B", "#9A6A2F", "#4F7A3A", "#2E7D6B", "#3D5A98", "#7E5BA6", "#B0703A", "#3F7E8C", "#A23E5C", "#6B7A3A"];
+const PALETTE = ["#0B2239", "#1CA6A6", "#FF5A3C", "#C9962E", "#3D6FA6", "#7E5BA6", "#C0603A", "#2E8F63", "#B84A6E", "#4A5D6A"];
 const TRANSPORTS = ["Vuelo", "Tren", "Bus", "Coche", "Barco"];
 const TR_ICON = { Vuelo: Plane, Tren: Train, Bus: Bus, Coche: Car, Barco: Ship };
 const DOW = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
@@ -116,7 +121,7 @@ const TIPS = [
   { icon: Building2, t: "Registro policial", x: "Si te alojas en hotel te registran al hacer check-in. En Shanghái, si hace falta, puede hacerse online." },
 ];
 const EXP_CATS = ["Vuelos", "Alojamiento", "Transporte", "Comida", "Actividades", "Compras", "Otros"];
-const EXP_COLORS = { Vuelos: "#3D5A98", Alojamiento: "#C0392B", Transporte: "#9A6A2F", Comida: "#E0883B", Actividades: "#2E7D6B", Compras: "#7E5BA6", Otros: "#8A8079" };
+const EXP_COLORS = { Vuelos: "#3D6FA6", Alojamiento: "#FF5A3C", Transporte: "#C9962E", Comida: "#E0883B", Actividades: "#1CA6A6", Compras: "#7E5BA6", Otros: "#7E8C95" };
 const PACK_CATS = ["Documentos", "Ropa", "Electrónica", "Aseo y salud", "Otros"];
 const TYPE_TO_CAT = { comida: "Comida", traslado: "Transporte", logistica: "Otros", historia: "Actividades", cultura: "Actividades", naturaleza: "Actividades", tech: "Actividades" };
 /* Personas que comparten gastos: Fa (yo) y Rubén */
@@ -124,7 +129,7 @@ const TYPE_TO_CAT = { comida: "Comida", traslado: "Transporte", logistica: "Otro
    no se muestran nunca: los nombres visibles se guardan por viaje en `payerNames`. */
 const PAYERS = ["fa", "ruben"];
 const PAYER_DEFAULT_NAMES = { fa: "Persona 1", ruben: "Persona 2" };
-const PAYER_COLOR = { fa: "#C0392B", ruben: "#3D5A98" };
+const PAYER_COLOR = { fa: "#FF5A3C", ruben: "#1CA6A6" };
 
 /* ============ componentes estables ============ */
 const Card = ({ children, style }) => (
@@ -750,7 +755,7 @@ export default function App({ tripId, tripName, onBack }) {
     TIPS.forEach((t) => h += `<li><b>${esc(t.t)}:</b> ${esc(t.x)}</li>`);
     h += `</ul></section>`;
 
-    const css ="*{box-sizing:border-box}body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:#26211C;background:#F5F1EA;margin:0;padding:24px;line-height:1.5}header{border-bottom:3px solid #C0392B;padding-bottom:12px;margin-bottom:20px}.brand{color:#C0392B;font-weight:800;letter-spacing:3px;font-size:12px}h1{font-size:30px;margin:4px 0}.gen{color:#6F6358;font-size:13px;margin:0}section{background:#fff;border:1px solid #E5DCCF;border-radius:12px;padding:16px 18px;margin-bottom:16px}h2{font-size:20px;margin:0 0 10px;color:#7E2A20;border-bottom:1px solid #E5DCCF;padding-bottom:6px}h3{font-size:15px;margin:14px 0 6px}h4{font-size:13.5px;margin:10px 0 4px}.stop{margin:10px 0 14px;padding-left:10px;border-left:3px solid #C0392B}.day{margin:6px 0 6px 6px;padding-left:10px;border-left:2px solid #E5DCCF}.act,.bk{margin:5px 0;padding:6px 8px;background:#F5F1EA;border-radius:8px}.time{font-family:ui-monospace,monospace;color:#6F6358;font-size:12px;margin-right:6px}.tag{font-size:10px;text-transform:uppercase;color:#2E7D6B;font-weight:700}.meta{font-size:12px;color:#7E2A20;margin-top:2px}.notes{font-size:12.5px;color:#6F6358;white-space:pre-wrap;margin-top:3px}.sub{font-size:12px;color:#6F6358}.range{font-family:ui-monospace,monospace;font-size:12px;color:#C0392B;font-weight:700}.ok{color:#2E7D6B;font-weight:700;font-size:11px}.pend{color:#6F6358;font-size:11px}ul{margin:4px 0;padding-left:20px}li{margin:3px 0}code{background:#EFE8DC;padding:1px 5px;border-radius:4px;font-size:12px}a.lnk{color:#3D5A98;font-size:12px;word-break:break-all}.att{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}.att figure{margin:0;width:120px}.att img{width:120px;height:120px;object-fit:cover;border-radius:8px;border:1px solid #E5DCCF}.att figcaption{font-size:10px;color:#6F6358;word-break:break-all}.att a.file{font-size:12px;color:#3D5A98}.empty{color:#6F6358;font-style:italic;font-size:13px}details{margin-top:16px}summary{cursor:pointer;color:#6F6358;font-size:12px}pre{white-space:pre-wrap;word-break:break-all;font-size:10px;background:#fff;border:1px solid #E5DCCF;border-radius:8px;padding:10px}@media print{@page{margin:14mm}body{background:#fff;padding:0;font-size:11px}section{border:none;padding:6px 0;margin:0 0 6px}.act,.bk,.day,figure,li{break-inside:avoid}h1,h2,h3,h4{break-after:avoid}a.lnk{color:#3D5A98}.att img{width:90px;height:90px}}";
+    const css ="*{box-sizing:border-box}body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:#0B2239;background:#EDF1F4;margin:0;padding:24px;line-height:1.5}header{border-bottom:3px solid #FF5A3C;padding-bottom:12px;margin-bottom:20px}.brand{color:#FF5A3C;font-weight:800;letter-spacing:3px;font-size:12px}h1{font-size:30px;margin:4px 0}.gen{color:#5B6B78;font-size:13px;margin:0}section{background:#fff;border:1px solid #DCE4EA;border-radius:12px;padding:16px 18px;margin-bottom:16px}h2{font-size:20px;margin:0 0 10px;color:#0B2239;border-bottom:1px solid #DCE4EA;padding-bottom:6px}h3{font-size:15px;margin:14px 0 6px}h4{font-size:13.5px;margin:10px 0 4px}.stop{margin:10px 0 14px;padding-left:10px;border-left:3px solid #FF5A3C}.day{margin:6px 0 6px 6px;padding-left:10px;border-left:2px solid #DCE4EA}.act,.bk{margin:5px 0;padding:6px 8px;background:#EDF1F4;border-radius:8px}.time{font-family:ui-monospace,monospace;color:#5B6B78;font-size:12px;margin-right:6px}.tag{font-size:10px;text-transform:uppercase;color:#1CA6A6;font-weight:700}.meta{font-size:12px;color:#E23B1E;margin-top:2px}.notes{font-size:12.5px;color:#5B6B78;white-space:pre-wrap;margin-top:3px}.sub{font-size:12px;color:#5B6B78}.range{font-family:ui-monospace,monospace;font-size:12px;color:#FF5A3C;font-weight:700}.ok{color:#1CA6A6;font-weight:700;font-size:11px}.pend{color:#5B6B78;font-size:11px}ul{margin:4px 0;padding-left:20px}li{margin:3px 0}code{background:#E3EAEF;padding:1px 5px;border-radius:4px;font-size:12px}a.lnk{color:#3D6FA6;font-size:12px;word-break:break-all}.att{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}.att figure{margin:0;width:120px}.att img{width:120px;height:120px;object-fit:cover;border-radius:8px;border:1px solid #DCE4EA}.att figcaption{font-size:10px;color:#5B6B78;word-break:break-all}.att a.file{font-size:12px;color:#3D6FA6}.empty{color:#5B6B78;font-style:italic;font-size:13px}details{margin-top:16px}summary{cursor:pointer;color:#5B6B78;font-size:12px}pre{white-space:pre-wrap;word-break:break-all;font-size:10px;background:#fff;border:1px solid #DCE4EA;border-radius:8px;padding:10px}@media print{@page{margin:14mm}body{background:#fff;padding:0;font-size:11px}section{border:none;padding:6px 0;margin:0 0 6px}.act,.bk,.day,figure,li{break-inside:avoid}h1,h2,h3,h4{break-after:avoid}a.lnk{color:#3D6FA6}.att img{width:90px;height:90px}}";
 
     return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(tripTitle || "Viaje")} — copia de seguridad</title><style>${css}</style></head><body>${h}</body></html>`;
   };
@@ -788,7 +793,7 @@ export default function App({ tripId, tripName, onBack }) {
       const col = dateColor[iso], cid = dateCityId[iso];
       cells.push(
         <button key={iso} onClick={col ? () => goToCity(cid) : undefined} disabled={!col}
-          style={{ height: 34, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12.5, fontWeight: col ? 700 : 500, background: col || "transparent", color: col ? "#fff" : "#C9BCA9", cursor: col ? "pointer" : "default", border: "none" }}>{d}</button>
+          style={{ height: 34, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12.5, fontWeight: col ? 700 : 500, background: col || "transparent", color: col ? "#fff" : "#AAB8C2", cursor: col ? "pointer" : "default", border: "none" }}>{d}</button>
       );
     }
     return (
@@ -805,18 +810,18 @@ export default function App({ tripId, tripName, onBack }) {
   /* ============ resumen ============ */
   const renderResumen = () => (
     <div className="px-5 pb-6">
-      <div className="rounded-2xl px-5 pt-6 pb-5 mb-4" style={{ background: C.ink, color: "#F5F1EA" }}>
-        <div className="flex items-center gap-2 mb-1" style={{ color: "#D9A441", ...mono, fontSize: 12, letterSpacing: 2 }}>
+      <div className="rounded-2xl px-5 pt-6 pb-5 mb-4" style={{ background: C.ink, color: "#EAF2F7" }}>
+        <div className="flex items-center gap-2 mb-1" style={{ color: C.gold, ...mono, fontSize: 12, letterSpacing: 2 }}>
           <Plane size={13} /> MI VIAJE
         </div>
         <input value={tripTitle} onChange={(e) => setTripTitle(e.target.value)} placeholder="Nombre del viaje"
-          style={{ fontSize: 42, fontWeight: 800, lineHeight: 1.05, letterSpacing: -1, background: "transparent", border: "none", outline: "none", color: "#F5F1EA", width: "100%", padding: 0 }} />
-        <div className="mt-1" style={{ color: "#C9BFB2", fontSize: 15, fontWeight: 600 }}>
+          style={{ fontSize: 42, fontWeight: 800, lineHeight: 1.05, letterSpacing: -1, background: "transparent", border: "none", outline: "none", color: "#EAF2F7", width: "100%", padding: 0 }} />
+        <div className="mt-1" style={{ color: "#9DB2C0", fontSize: 15, fontWeight: 600 }}>
           {itin.length ? `${itin[0].city} → ${itin[itin.length - 1].city}` : "Añade tu primera parada"}
         </div>
-        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-4" style={{ ...mono, fontSize: 13, color: "#C9BFB2" }}>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-4" style={{ ...mono, fontSize: 13, color: "#9DB2C0" }}>
           <span>{minDate && maxDate ? `${dparts(minDate).dd} ${dparts(minDate).mmm} – ${dparts(maxDate).dd} ${dparts(maxDate).mmm}` : "Sin fechas aún"}</span>
-          <span style={{ color: "#5C534A" }}>|</span>
+          <span style={{ color: "#3A4E60" }}>|</span>
           <span>{dates.length} día{dates.length === 1 ? "" : "s"} · {itin.length} {itin.length === 1 ? "parada" : "paradas"}</span>
         </div>
       </div>
@@ -1150,14 +1155,14 @@ export default function App({ tripId, tripName, onBack }) {
             </div>
           ))}
         </div>
-        <div className="rounded-xl px-4 py-3 text-center" style={{ background: C.ink, color: "#F5F1EA" }}>
+        <div className="rounded-xl px-4 py-3 text-center" style={{ background: C.ink, color: "#EAF2F7" }}>
           {sharedTotal <= 0 ? (
-            <span style={{ fontSize: 13, color: "#C9BFB2" }}>Aún no hay gastos con pagador asignado.</span>
+            <span style={{ fontSize: 13, color: "#9DB2C0" }}>Aún no hay gastos con pagador asignado.</span>
           ) : balanceAmount < 0.005 ? (
             <span style={{ fontSize: 14, fontWeight: 700 }}>Estáis en paz 🎉</span>
           ) : (
             <div>
-              <span style={{ fontSize: 13, color: "#C9BFB2" }}><b style={{ color: "#fff" }}>{payerNames[balanceDebtor]}</b> debe a <b style={{ color: "#fff" }}>{payerNames[balanceCreditor]}</b></span>
+              <span style={{ fontSize: 13, color: "#9DB2C0" }}><b style={{ color: "#fff" }}>{payerNames[balanceDebtor]}</b> debe a <b style={{ color: "#fff" }}>{payerNames[balanceCreditor]}</b></span>
               <div style={{ ...mono, fontSize: 26, fontWeight: 800, color: "#fff", lineHeight: 1.1 }}>{eur(balanceAmount)}</div>
             </div>
           )}
@@ -1364,9 +1369,9 @@ export default function App({ tripId, tripName, onBack }) {
         <div style={{ fontSize: 22, fontWeight: 800, color: C.ink }}>Documentos y consejos</div>
         <div style={{ color: C.sub, fontSize: 13 }}>Lo que necesitas para entrar y moverte sin sustos.</div>
       </div>
-      <div className="rounded-xl px-4 py-3 mb-4 flex gap-3" style={{ background: "#EAF3EF", border: `1px solid ${C.jade}44` }}>
+      <div className="rounded-xl px-4 py-3 mb-4 flex gap-3" style={{ background: "#E2F3F3", border: `1px solid ${C.jade}44` }}>
         <Check size={18} color={C.jade} style={{ marginTop: 1, flexShrink: 0 }} />
-        <div style={{ fontSize: 13, color: "#2A5A4F" }}><b>Sin visado.</b> España tiene exención hasta el 31/12/2026 para estancias de máximo 30 días consecutivos.</div>
+        <div style={{ fontSize: 13, color: "#0E5C5C" }}><b>Sin visado.</b> España tiene exención hasta el 31/12/2026 para estancias de máximo 30 días consecutivos.</div>
       </div>
       <div className="px-1 mb-2" style={{ color: C.sub, fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Antes de salir</div>
       <Card style={{ overflow: "hidden", marginBottom: 16 }}>
@@ -1780,7 +1785,7 @@ export default function App({ tripId, tripName, onBack }) {
           <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: 270, maxWidth: "84%", background: C.paper, borderRight: `1px solid ${C.line}`, boxShadow: "2px 0 28px rgba(20,16,12,0.20)", display: "flex", flexDirection: "column", overflowY: "auto", animation: "drawerIn 0.18s ease-out" }}>
             <div className="flex items-start justify-between" style={{ padding: "18px 16px 14px", borderBottom: `1px solid ${C.line}` }}>
               <div className="min-w-0">
-                <div className="flex items-center gap-1.5" style={{ color: "#B0703A", ...mono, fontSize: 11, letterSpacing: 2 }}><Plane size={12} /> MI VIAJE</div>
+                <div className="flex items-center gap-1.5" style={{ color: "#C9962E", ...mono, fontSize: 11, letterSpacing: 2 }}><Plane size={12} /> MI VIAJE</div>
                 <div style={{ fontSize: 19, fontWeight: 800, color: C.ink, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tripTitle}</div>
               </div>
               <button onClick={() => setDrawerOpen(false)} aria-label="Cerrar menú" className="rounded-full p-1.5" style={{ background: C.card, border: `1px solid ${C.line}`, flexShrink: 0 }}><X size={16} color={C.sub} /></button>

@@ -4,7 +4,7 @@ import Login from "./Login";
 import Trips from "./Trips";
 import { supabase, isConfigured } from "./supabase";
 
-const C = { ink: "#26211C", sub: "#6F6358", paper: "#F5F1EA", card: "#FFFFFF", red: "#C0392B", line: "#E5DCCF", jade: "#2E7D6B" };
+const C = { ink: "#0B2239", sub: "#5B6B78", paper: "#EDF1F4", card: "#FFFFFF", red: "#FF5A3C", line: "#DCE4EA", jade: "#1CA6A6", gold: "#FFC857" };
 const center = { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "system-ui, sans-serif", color: C.sub, background: C.paper };
 
 /* Pantalla para fijar una nueva contraseña tras pulsar el enlace de recuperación. */
