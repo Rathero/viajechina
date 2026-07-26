@@ -3,7 +3,7 @@ import {
   Plane, Train, Calendar, Wallet, Luggage, FileText, MapPin, Check, Plus,
   Trash2, ChevronDown, ChevronRight, ChevronLeft, Building2, Sparkles, AlertCircle,
   CreditCard, Wifi, Globe, Paperclip, Download, StickyNote, X,
-  Pencil, Bus, Car, Ship, ListChecks, ClipboardList, Image as ImageIcon, GripVertical, Link2, ExternalLink, BookOpen, Menu, ChevronsDownUp, ChevronsUpDown, SlidersHorizontal,
+  Pencil, Bus, Car, Ship, ListChecks, ClipboardList, Image as ImageIcon, GripVertical, Link2, ExternalLink, BookOpen, Menu, ChevronsDownUp, ChevronsUpDown, SlidersHorizontal, ArrowRightLeft,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { store } from "./store";
@@ -52,6 +52,12 @@ const CURRENCIES = [
 ];
 const CUR_SYM = Object.fromEntries(CURRENCIES.map(([c, s]) => [c, s]));
 const symOf = (code) => CUR_SYM[code] || code || "";
+/* Un cambio como 0,005366 no se puede redondear a 3 decimales sin mentir:
+   se muestran más decimales cuanto más pequeño es. */
+const fmtRate = (n) => {
+  const d = n >= 100 ? 2 : n >= 1 ? 4 : n >= 0.01 ? 5 : 6;
+  return n.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: d });
+};
 /* Las monedas sin decimales (yen, won, pesos chilenos…) se muestran redondeadas. */
 const NO_DECIMALS = new Set(["JPY", "KRW", "CLP", "VND", "IDR", "ISK"]);
 const fmtAmount = (n, code) => {
@@ -208,6 +214,13 @@ export default function App({ tripId, tripName, onBack }) {
   /* Filtros de la pantalla de Gastos (no se guardan: son de la sesión). */
   const [filters, setFilters] = useState({ view: "conjunto", person: "", cat: "", paid: "" });
   const [showFilters, setShowFilters] = useState(false);
+  const [showAddExpense, setShowAddExpense] = useState(false);
+  /* Conversor de monedas: independiente del cambio guardado del viaje. */
+  const [showConv, setShowConv] = useState(false);
+  const [conv, setConv] = useState({ from: "", to: "", amount: "" });
+  const [convRates, setConvRates] = useState(null); // { base, rates, date }
+  const [convBusy, setConvBusy] = useState(false);
+  const [convErr, setConvErr] = useState("");
   const [rateUpdated, setRateUpdated] = useState("");
   const [rateBusy, setRateBusy] = useState(false);
   const [rateErr, setRateErr] = useState("");
@@ -684,6 +697,46 @@ export default function App({ tripId, tripName, onBack }) {
     } catch (e) {
       setRateErr("No se ha podido consultar el cambio. Puedes escribirlo a mano.");
     } finally { setRateBusy(false); }
+  };
+
+  /* ---- conversor de monedas ----
+     Abre con la moneda del destino a la izquierda y la tuya a la derecha, pero
+     admite cualquier par. Los cambios se piden al abrir y al cambiar el origen;
+     si no hay conexión y el par es el del viaje, se usa el cambio guardado. */
+  const openConverter = () => {
+    const next = !showConv;
+    setShowConv(next);
+    if (!next) return;
+    const from = conv.from || (twoCurrencies ? currency.trip : currency.base);
+    const to = conv.to || (twoCurrencies ? currency.base : "USD");
+    setConv((c) => ({ ...c, from, to }));
+    loadConvRates(from);
+  };
+  const loadConvRates = async (base) => {
+    if (!base || (convRates && convRates.base === base)) return;
+    setConvBusy(true); setConvErr("");
+    try {
+      const res = await fetch(`https://open.er-api.com/v6/latest/${base}`);
+      const data = await res.json();
+      if (!data || !data.rates) throw new Error("sin datos");
+      setConvRates({ base, rates: data.rates, date: (data.time_last_update_utc || "").slice(5, 16) });
+    } catch (e) {
+      setConvRates(null);
+      setConvErr("Sin conexión para consultar el cambio de hoy.");
+    } finally { setConvBusy(false); }
+  };
+  /* Cambio entre las dos monedas elegidas. Devuelve null si no se puede saber. */
+  const convFactor = () => {
+    const { from, to } = conv;
+    if (!from || !to) return null;
+    if (from === to) return 1;
+    if (convRates && convRates.base === from && convRates.rates[to]) return convRates.rates[to];
+    // Respaldo sin conexión: el cambio guardado del viaje, en cualquier sentido.
+    if (twoCurrencies && rate) {
+      if (from === currency.base && to === currency.trip) return rate;
+      if (from === currency.trip && to === currency.base) return 1 / rate;
+    }
+    return null;
   };
 
   /* Control segmentado de los filtros de Gastos. */
@@ -1315,10 +1368,65 @@ export default function App({ tripId, tripName, onBack }) {
   /* ============ gastos ============ */
   const renderGastos = () => (
     <div className="px-5 pb-6">
-      <div className="pt-1 pb-3">
-        <div style={{ fontSize: 22, fontWeight: 800, color: C.ink }}>Gastos</div>
-        <div style={{ color: C.sub, fontSize: 13 }}>Incluye los precios de las actividades de la ruta.{twoCurrencies ? ` Cambio: 1 ${currency.base} ≈ ${rate} ${currency.trip}` : ""}</div>
+      <div className="pt-1 pb-3 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div style={{ fontSize: 22, fontWeight: 800, color: C.ink }}>Gastos</div>
+          <div style={{ color: C.sub, fontSize: 13 }}>Incluye los precios de las actividades de la ruta.{twoCurrencies ? ` Cambio: 1 ${currency.base} ≈ ${rate} ${currency.trip}` : ""}</div>
+        </div>
+        <div className="flex items-center gap-2" style={{ flexShrink: 0 }}>
+          <button onClick={openConverter} aria-label="Conversor de monedas" title="Conversor de monedas"
+            className="flex items-center justify-center rounded-lg" style={{ width: 38, height: 38, background: showConv ? C.jade : C.card, border: `1px solid ${showConv ? C.jade : C.line}`, color: showConv ? "#fff" : C.sub }}>
+            <ArrowRightLeft size={18} />
+          </button>
+          <button onClick={() => { setShowAddExpense((v) => !v); setShowConv(false); }} aria-label="Añadir gasto" title="Añadir gasto"
+            className="flex items-center justify-center rounded-lg" style={{ width: 38, height: 38, background: C.red, color: "#fff", border: "none" }}>
+            <Plus size={20} />
+          </button>
+        </div>
       </div>
+
+      {showConv && (() => {
+        const f = convFactor();
+        const amt = parseFloat(String(conv.amount).replace(",", ".")) || 0;
+        return (
+          <Card style={{ padding: 14, marginBottom: 14 }}>
+            <div className="flex items-center gap-2 mb-3">
+              <ArrowRightLeft size={15} color={C.jade} />
+              <span style={{ fontWeight: 700, color: C.ink, fontSize: 14 }} className="flex-1">Conversor</span>
+              <button onClick={() => setShowConv(false)} className="rounded-full p-1" style={{ background: C.paper, border: `1px solid ${C.line}` }}><X size={15} color={C.sub} /></button>
+            </div>
+
+            <div className="flex gap-2 mb-2">
+              <input value={conv.amount} onChange={(e) => setConv({ ...conv, amount: e.target.value })} placeholder="0,00" inputMode="decimal" autoFocus style={{ ...inp, flex: 1, ...mono }} />
+              <select value={conv.from} onChange={(e) => { const v = e.target.value; setConv({ ...conv, from: v }); loadConvRates(v); }} style={{ ...inp, width: "auto" }}>
+                {CURRENCIES.map(([c, s]) => <option key={c} value={c}>{s} {c}</option>)}
+              </select>
+            </div>
+
+            <div className="flex items-center justify-center mb-2">
+              <button onClick={() => { const { from, to } = conv; setConv({ ...conv, from: to, to: from }); loadConvRates(to); }}
+                aria-label="Invertir monedas" className="rounded-full p-1.5" style={{ background: C.paper, border: `1px solid ${C.line}`, color: C.sub }}>
+                <ArrowRightLeft size={15} />
+              </button>
+            </div>
+
+            <div className="flex gap-2">
+              <div style={{ ...inp, flex: 1, ...mono, background: C.paper, display: "flex", alignItems: "center", fontWeight: 700, color: C.ink, minHeight: 44 }}>
+                {convBusy ? "…" : f == null ? "—" : fmtAmount(amt * f, conv.to)}
+              </div>
+              <select value={conv.to} onChange={(e) => setConv({ ...conv, to: e.target.value })} style={{ ...inp, width: "auto" }}>
+                {CURRENCIES.map(([c, s]) => <option key={c} value={c}>{s} {c}</option>)}
+              </select>
+            </div>
+
+            <div style={{ fontSize: 11.5, color: convErr && f == null ? C.red : C.sub, marginTop: 8 }}>
+              {convBusy ? "Consultando el cambio…"
+                : f == null ? (convErr || "No hay cambio disponible para este par.")
+                : `1 ${conv.from} = ${fmtRate(f)} ${conv.to}${convRates && convRates.base === conv.from ? ` · cambio del ${convRates.date}` : " · cambio guardado del viaje"}`}
+            </div>
+          </Card>
+        );
+      })()}
 
       <Card style={{ padding: 12, marginBottom: 14 }}>
         <button onClick={() => setShowFilters((v) => !v)} className="w-full flex items-center gap-2">
@@ -1440,25 +1548,36 @@ export default function App({ tripId, tripName, onBack }) {
         )}
       </Card>
 
-      <Card style={{ padding: 14, marginBottom: 14 }}>
-        <div style={{ fontWeight: 700, color: C.ink, fontSize: 14, marginBottom: 10 }}>Añadir gasto manual</div>
-        <div className="flex gap-2 mb-2">
-          <select value={ne.cat} onChange={(e) => setNe({ ...ne, cat: e.target.value })} style={{ ...inp, flex: 1, padding: "8px 8px" }}>
-            {EXP_CATS.map((c) => <option key={c}>{c}</option>)}
-          </select>
-          <input type="date" value={ne.date} onChange={(e) => setNe({ ...ne, date: e.target.value })} style={{ ...inp, width: "auto", ...mono, fontSize: 12, padding: "8px 8px" }} />
-        </div>
-        <input value={ne.desc} onChange={(e) => setNe({ ...ne, desc: e.target.value })} placeholder="Descripción" style={{ ...inp, marginBottom: 8 }} />
-        <div className="mb-2">
-          <div style={{ fontSize: 11, color: C.sub, marginBottom: 4 }}>¿Quién paga?</div>
-          {renderPayerPicker(ne.paidBy, (v) => setNe({ ...ne, paidBy: v }), false)}
-        </div>
-        <div className="flex gap-2">
-          <input value={ne.amount} onChange={(e) => setNe({ ...ne, amount: e.target.value })} placeholder="0,00" inputMode="decimal" style={{ ...inp, flex: 1, ...mono }} />
-          {renderCurSelect(ne.cur, (v) => setNe({ ...ne, cur: v }))}
-          <button onClick={addExpense} className="rounded-lg px-4 flex items-center justify-center" style={{ background: C.red, color: "#fff" }}><Plus size={20} /></button>
-        </div>
-      </Card>
+      {showAddExpense && (
+        <Card style={{ padding: 14, marginBottom: 14 }}>
+          <div className="flex items-center gap-2 mb-3">
+            <Plus size={16} color={C.red} />
+            <span style={{ fontWeight: 700, color: C.ink, fontSize: 14 }} className="flex-1">Añadir gasto</span>
+            <button onClick={() => setShowAddExpense(false)} className="rounded-full p-1" style={{ background: C.paper, border: `1px solid ${C.line}` }}><X size={15} color={C.sub} /></button>
+          </div>
+          <div className="flex gap-2 mb-2">
+            <select value={ne.cat} onChange={(e) => setNe({ ...ne, cat: e.target.value })} style={{ ...inp, flex: 1, padding: "8px 8px" }}>
+              {EXP_CATS.map((c) => <option key={c}>{c}</option>)}
+            </select>
+            <input type="date" value={ne.date} onChange={(e) => setNe({ ...ne, date: e.target.value })} style={{ ...inp, width: "auto", ...mono, padding: "8px 8px" }} />
+          </div>
+          <input value={ne.desc} onChange={(e) => setNe({ ...ne, desc: e.target.value })} placeholder="Descripción" style={{ ...inp, marginBottom: 8 }} />
+          <div className="mb-2">
+            <div style={{ fontSize: 11, color: C.sub, marginBottom: 4 }}>¿Quién paga?</div>
+            {renderPayerPicker(ne.paidBy, (v) => setNe({ ...ne, paidBy: v }), false)}
+          </div>
+          <div className="flex gap-2 mb-2">
+            <input value={ne.amount} onChange={(e) => setNe({ ...ne, amount: e.target.value })} placeholder="0,00" inputMode="decimal" style={{ ...inp, flex: 1, ...mono }} />
+            {renderCurSelect(ne.cur, (v) => setNe({ ...ne, cur: v }))}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => { addExpense(); setShowAddExpense(false); }} disabled={!(parseFloat(String(ne.amount).replace(",", ".")) > 0)}
+              className="flex-1 rounded-lg py-2.5" style={{ background: C.red, color: "#fff", fontSize: 13.5, fontWeight: 700, opacity: parseFloat(String(ne.amount).replace(",", ".")) > 0 ? 1 : 0.5 }}>Guardar</button>
+            <button onClick={() => { setShowAddExpense(false); setNe({ ...ne, desc: "", amount: "" }); }}
+              className="flex-1 rounded-lg py-2.5" style={{ background: C.card, border: `1px solid ${C.line}`, color: C.sub, fontSize: 13.5, fontWeight: 600 }}>Cancelar</button>
+          </div>
+        </Card>
+      )}
 
       {expensesShown.length > 0 && (
         <div className="flex flex-col gap-2 mb-4">
