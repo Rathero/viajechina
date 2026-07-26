@@ -533,6 +533,11 @@ export default function App({ tripId, tripName, onBack }) {
     const d = tripDay();
     setNb((n) => ({ ...n, date: d, dateEnd: n.type === "Hotel" ? clampTrip(addDaysISO(d, 1)) : "" }));
   };
+  /* Cierra el formulario y descarta lo escrito. */
+  const cancelAddBooking = () => {
+    setShowAddB(false);
+    setNb({ type: nb.type, title: "", date: tripDay(), dateEnd: nb.type === "Hotel" ? clampTrip(addDaysISO(tripDay(), 1)) : "", detail: "" });
+  };
   const addBooking = () => {
     if (!nb.title.trim()) return;
     setBookings((x) => [...x, {
@@ -1107,12 +1112,13 @@ export default function App({ tripId, tripName, onBack }) {
               <input type="date" value={nc.end} onChange={(e) => setNc({ ...nc, end: e.target.value })} style={{ ...inp, ...mono, fontSize: 12 }} />
             </div>
           </div>
+          <select value={nc.mode} onChange={(e) => setNc({ ...nc, mode: e.target.value })} style={{ ...inp, marginBottom: 8 }}>
+            <option value="">Cómo llegas (opcional)</option>
+            {TRANSPORTS.map((t) => <option key={t}>{t}</option>)}
+          </select>
           <div className="flex gap-2">
-            <select value={nc.mode} onChange={(e) => setNc({ ...nc, mode: e.target.value })} style={{ ...inp, flex: 1 }}>
-              <option value="">Cómo llegas (opcional)</option>
-              {TRANSPORTS.map((t) => <option key={t}>{t}</option>)}
-            </select>
-            <button onClick={addCity} className="rounded-lg px-5" style={{ background: C.ink, color: "#fff", fontSize: 13, fontWeight: 600 }}>Crear</button>
+            <button onClick={addCity} disabled={!nc.name.trim()} className="flex-1 rounded-lg py-2.5" style={{ background: C.ink, color: "#fff", fontSize: 13.5, fontWeight: 700, opacity: nc.name.trim() ? 1 : 0.5 }}>Crear</button>
+            <button onClick={() => { setShowAddCity(false); setNc({ name: "", start: "", end: "", mode: "" }); }} className="flex-1 rounded-lg py-2.5" style={{ background: C.card, border: `1px solid ${C.line}`, color: C.sub, fontSize: 13.5, fontWeight: 600 }}>Cancelar</button>
           </div>
           <div style={{ fontSize: 11, color: C.sub, marginTop: 8 }}>Si pones primer y último día, se crean los días automáticamente. Podrás editarlos después.</div>
         </Card>
@@ -1537,9 +1543,10 @@ export default function App({ tripId, tripName, onBack }) {
               </div>
             )}
             <input value={nb.title} onChange={(e) => setNb({ ...nb, title: e.target.value })} placeholder={nb.type === "Hotel" ? "Título (p. ej. Hotel en el centro)" : "Título (p. ej. Vuelo de ida)"} style={{ ...inp, marginBottom: 8 }} />
+            <input value={nb.detail} onChange={(e) => setNb({ ...nb, detail: e.target.value })} placeholder="Detalle" style={{ ...inp, marginBottom: 8 }} />
             <div className="flex gap-2">
-              <input value={nb.detail} onChange={(e) => setNb({ ...nb, detail: e.target.value })} placeholder="Detalle" style={{ ...inp, flex: 1 }} />
-              <button onClick={addBooking} className="rounded-lg px-4" style={{ background: C.ink, color: "#fff", fontSize: 13, fontWeight: 600 }}>Guardar</button>
+              <button onClick={addBooking} disabled={!nb.title.trim()} className="flex-1 rounded-lg py-2.5" style={{ background: C.ink, color: "#fff", fontSize: 13.5, fontWeight: 700, opacity: nb.title.trim() ? 1 : 0.5 }}>Guardar</button>
+              <button onClick={cancelAddBooking} className="flex-1 rounded-lg py-2.5" style={{ background: C.card, border: `1px solid ${C.line}`, color: C.sub, fontSize: 13.5, fontWeight: 600 }}>Cancelar</button>
             </div>
           </Card>
         )}
