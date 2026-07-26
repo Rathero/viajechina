@@ -226,7 +226,7 @@ export default function App({ tripId, tripName, onBack }) {
   const [nc, setNc] = useState({ name: "", start: "", end: "", mode: "" });
   const [showAddCity, setShowAddCity] = useState(false);
   const [ne, setNe] = useState({ cat: "Comida", desc: "", amount: "", cur: "EUR", date: todayISO(), paidBy: "fa", link: "" });
-  const [nb, setNb] = useState({ type: "Hotel", title: "", date: todayISO(), detail: "" });
+  const [nb, setNb] = useState({ type: "Hotel", title: "", date: todayISO(), dateEnd: addDaysISO(todayISO(), 1), detail: "" });
   const [showAddB, setShowAddB] = useState(false);
   const [np, setNp] = useState({ cat: "Otros", item: "" });
   const [na, setNa] = useState({ t: "12:00", x: "", type: "cultura" });
@@ -266,7 +266,9 @@ export default function App({ tripId, tripName, onBack }) {
             it.forEach((c) => c.days.forEach((dd) => { dayDefaults[dd.id] = !(dd.date && dd.date < today); }));
             setOpenDay(dayDefaults);
           }
-          if (Array.isArray(d.bookings)) setBookings(d.bookings.map((b) => ({ ref: "", notes: "", att: [], status: "pendiente", link: "", dateEnd: "", price: null, cur: "", paidBy: "", ...b })));
+          /* `status` guarda si está reservado ("confirmado"/"pendiente"); se
+             mantiene el valor antiguo para no migrar datos ya guardados. */
+          if (Array.isArray(d.bookings)) setBookings(d.bookings.map((b) => ({ ref: "", notes: "", att: [], status: "pendiente", link: "", dateEnd: "", price: null, cur: "", paidBy: "", paid: false, ...b })));
           if (Array.isArray(d.packing)) setPacking(d.packing);
           if (Array.isArray(d.expenses)) setExpenses(d.expenses.map((e) => ({ paidBy: "fa", link: "", ...e })));
           if (d.docsChk) setDocsChk(d.docsChk);
@@ -526,8 +528,13 @@ export default function App({ tripId, tripName, onBack }) {
   };
   const addBooking = () => {
     if (!nb.title.trim()) return;
-    setBookings((x) => [...x, { id: "b" + Date.now(), ...nb, status: "pendiente", ref: "", notes: "", link: "", att: [], dateEnd: "", price: null, cur: currency.base, paidBy: "" }]);
-    setNb({ type: nb.type, title: "", date: nb.date, detail: "" });
+    setBookings((x) => [...x, {
+      id: "b" + Date.now(), status: "pendiente", paid: false, ref: "", notes: "", link: "", att: [],
+      price: null, cur: currency.base, paidBy: "",
+      ...nb,
+      dateEnd: nb.type === "Hotel" ? (nb.dateEnd || "") : "",
+    }]);
+    setNb({ type: nb.type, title: "", date: nb.date, dateEnd: nb.type === "Hotel" ? addDaysISO(nb.date || todayISO(), 1) : "", detail: "" });
     setShowAddB(false);
   };
 
@@ -664,6 +671,15 @@ export default function App({ tripId, tripName, onBack }) {
     } finally { setRateBusy(false); }
   };
 
+  /* Etiqueta de estado (Reservado / Pagado): verde si está hecho, gris si no. */
+  const stateChip = (label, on) => (
+    <span style={{
+      fontSize: 10, fontWeight: 700, letterSpacing: 0.3, padding: "2px 7px", borderRadius: 99,
+      color: on ? C.jade : C.sub, background: on ? C.jade + "1A" : "transparent",
+      border: `1px solid ${on ? C.jade + "55" : C.line}`, whiteSpace: "nowrap",
+    }}>{on ? `✓ ${label}` : label}</span>
+  );
+
   /* Selector de moneda de un importe: solo ofrece las dos del viaje. */
   const curOptions = twoCurrencies ? [currency.base, currency.trip] : [currency.base];
   const renderCurSelect = (value, onChange) => (
@@ -681,6 +697,7 @@ export default function App({ tripId, tripName, onBack }) {
   const bookingExpenses = bookings.filter((b) => b.price && b.price > 0).map((b) => ({
     id: b.id, name: b.title || b.type, type: b.type, date: b.date, dateEnd: b.dateEnd,
     cat: BOOKING_TO_CAT[b.type] || "Otros", amount: b.price, cur: b.cur || currency.base, paidBy: b.paidBy || "",
+    booked: b.status === "confirmado", paid: !!b.paid,
   }));
   const manualTotal = expenses.reduce((s, e) => s + toBase(e.amount, e.cur), 0);
   const routeTotal = routeExpenses.reduce((s, e) => s + toBase(e.amount, e.cur), 0);
@@ -701,6 +718,7 @@ export default function App({ tripId, tripName, onBack }) {
   const balanceCreditor = balanceNet > 0 ? "fa" : "ruben";
   const balanceAmount = Math.abs(balanceNet);
   const bookConfirmed = bookings.filter((b) => b.status === "confirmado").length;
+  const bookPaid = bookings.filter((b) => b.paid).length;
   const packDone = packing.filter((p) => p.done).length;
   const dateColor = {}, dateCityId = {};
   itin.forEach((c) => c.days.forEach((d) => { if (d.date) { dateColor[d.date] = c.color; dateCityId[d.date] = c.id; } }));
@@ -751,7 +769,7 @@ export default function App({ tripId, tripName, onBack }) {
     h += `<p><b>${esc(routeLabel)}</b></p>`;
     h += `<p>${esc(datesLabel)} · ${dates.length} día${dates.length === 1 ? "" : "s"} · ${itin.length} parada${itin.length === 1 ? "" : "s"}</p>`;
     h += `<p>Gastado: <b>${esc(money(totalSpent))}</b>${budget > 0 ? ` de ${esc(money(budget))}` : ""}</p>`;
-    h += `<p>Reservas confirmadas: ${bookConfirmed}/${bookings.length} · Maleta: ${packDone}/${packing.length} · Actividades reservadas: ${actsBooked}/${allActs.length}</p>`;
+    h += `<p>Reservas: ${bookConfirmed}/${bookings.length} reservadas, ${bookPaid} pagadas · Maleta: ${packDone}/${packing.length} · Actividades reservadas: ${actsBooked}/${allActs.length}</p>`;
     h += `</section>`;
 
     // 2) Ruta
@@ -798,7 +816,7 @@ export default function App({ tripId, tripName, onBack }) {
     if (unassignedPaid > 0.005) h += `<p class="sub">${esc(money(unassignedPaid))} sin asignar a una persona.</p>`;
     if (pieData.length) { h += `<h3>Por categoría</h3><ul>`; pieData.forEach((d) => h += `<li>${esc(d.name)}: ${esc(money(d.value))}</li>`); h += `</ul>`; }
     if (expenses.length) { h += `<h3>Gastos manuales</h3><ul>`; expenses.forEach((e) => h += `<li>${esc(e.desc || e.cat)} — ${esc(e.cat)} · ${esc(fmtShort(e.date))} · ${e.paidBy ? esc(payerNames[e.paidBy]) : "—"} · <b>${esc(money(toBase(e.amount, e.cur)))}</b>${e.cur !== currency.base ? ` (${esc(fmtAmount(e.amount, e.cur))})` : ""}${e.link ? linkHtml(e.link) : ""}</li>`); h += `</ul>`; }
-    if (bookingExpenses.length) { h += `<h3>Gastos de reservas</h3><ul>`; bookingExpenses.forEach((e) => h += `<li>${esc(e.name)} — ${esc(e.cat)}${e.date ? ` · ${esc(fmtShort(e.date))}` : ""} · ${e.paidBy ? esc(payerNames[e.paidBy]) : "—"} · <b>${esc(money(toBase(e.amount, e.cur)))}</b>${e.cur !== currency.base ? ` (${esc(fmtAmount(e.amount, e.cur))})` : ""}</li>`); h += `</ul>`; }
+    if (bookingExpenses.length) { h += `<h3>Gastos de reservas</h3><ul>`; bookingExpenses.forEach((e) => h += `<li>${esc(e.name)} — ${esc(e.cat)}${e.date ? ` · ${esc(fmtShort(e.date))}` : ""} · ${e.paidBy ? esc(payerNames[e.paidBy]) : "—"} · <b>${esc(money(toBase(e.amount, e.cur)))}</b>${e.cur !== currency.base ? ` (${esc(fmtAmount(e.amount, e.cur))})` : ""} · ${e.booked ? "reservado" : "sin reservar"}, ${e.paid ? "pagado" : "sin pagar"}</li>`); h += `</ul>`; }
     if (routeExpenses.length) { h += `<h3>Gastos de la ruta</h3><ul>`; routeExpenses.forEach((e) => h += `<li>${esc(e.name)} — ${esc(e.city)}${e.date ? ` · ${esc(fmtShort(e.date))}` : ""} · ${e.paidBy ? esc(payerNames[e.paidBy]) : "—"} · <b>${esc(money(toBase(e.amount, e.cur)))}</b></li>`); h += `</ul>`; }
     h += `</section>`;
 
@@ -806,9 +824,9 @@ export default function App({ tripId, tripName, onBack }) {
     h += `<section><h2>Reservas</h2>`;
     if (!bookings.length) h += `<p class="empty">Sin reservas.</p>`;
     ["Vuelo", "Tren", "Hotel", "Actividad"].map((t) => [t, bookings.filter((b) => b.type === t)]).filter(([, a]) => a.length).forEach(([type, arr]) => {
-      h += `<h3>${esc(type === "Actividad" ? "Actividades" : type + "s")}</h3>`;
+      h += `<h3>${esc(bPlural[type] || type)}</h3>`;
       arr.forEach((b) => {
-        h += `<div class="bk"><b>${esc(b.title)}</b> ${b.status === "confirmado" ? '<span class="ok">✔ confirmada</span>' : '<span class="pend">pendiente</span>'}`;
+        h += `<div class="bk"><b>${esc(b.title)}</b> ${b.status === "confirmado" ? '<span class="ok">✔ reservado</span>' : '<span class="pend">sin reservar</span>'} ${b.paid ? '<span class="ok">✔ pagado</span>' : '<span class="pend">sin pagar</span>'}`;
         const sub = [];
         const nb = nightsOf(b);
         if (b.date) sub.push(nb ? `${fmtShort(b.date)} → ${fmtShort(b.dateEnd)} · ${nb} noche${nb === 1 ? "" : "s"}` : fmtShort(b.date));
@@ -983,7 +1001,7 @@ export default function App({ tripId, tripName, onBack }) {
 
       <div className="grid grid-cols-3 gap-3">
         {[
-          { l: "Reservas", v: `${bookConfirmed}/${bookings.length}`, sub: "confirmadas" },
+          { l: "Reservas", v: `${bookConfirmed}/${bookings.length}`, sub: "reservadas" },
           { l: "Equipaje", v: `${packDone}/${packing.length}`, sub: "preparado" },
           { l: "Ruta", v: `${actsBooked}/${allActs.length}`, sub: "reservado" },
         ].map((s) => (
@@ -1345,6 +1363,10 @@ export default function App({ tripId, tripName, onBack }) {
                 <div className="flex-1 min-w-0">
                   <div style={{ fontSize: 14, color: C.ink, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.name}</div>
                   <div style={{ fontSize: 11, color: C.sub }}>{e.cat}{e.date ? ` · ${dparts(e.date).dd} ${dparts(e.date).mmm}` : ""}{e.paidBy ? <> · <b style={{ color: PAYER_COLOR[e.paidBy] }}>{payerNames[e.paidBy]}</b></> : ""}</div>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    {stateChip("Reservado", e.booked)}
+                    {stateChip("Pagado", e.paid)}
+                  </div>
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <div style={{ ...mono, fontSize: 14, fontWeight: 700, color: C.ink }}>{money(toBase(e.amount, e.cur))}</div>
@@ -1420,6 +1442,7 @@ export default function App({ tripId, tripName, onBack }) {
 
   /* ============ reservas ============ */
   const bIcon = { Vuelo: Plane, Tren: Train, Hotel: Building2, Actividad: Sparkles };
+  const bPlural = { Vuelo: "Vuelos", Tren: "Trenes", Hotel: "Hoteles", Actividad: "Actividades" };
   /* "12 oct → 15 oct · 3 noches" en hoteles; solo la fecha en el resto. */
   const fmtBookingDates = (b) => {
     if (!b.date) return "";
@@ -1435,7 +1458,7 @@ export default function App({ tripId, tripName, onBack }) {
         <div className="pt-1 pb-3 flex items-end justify-between">
           <div>
             <div style={{ fontSize: 22, fontWeight: 800, color: C.ink }}>Reservas</div>
-            <div style={{ color: C.sub, fontSize: 13 }}>{bookings.length ? `${bookConfirmed} de ${bookings.length} confirmadas` : "Vuelos, trenes y hoteles"}</div>
+            <div style={{ color: C.sub, fontSize: 13 }}>{bookings.length ? `${bookConfirmed} de ${bookings.length} reservadas · ${bookPaid} pagadas` : "Vuelos, trenes y hoteles"}</div>
           </div>
           <button onClick={() => setShowAddB((v) => !v)} className="flex items-center gap-1 rounded-lg px-3 py-2" style={{ background: C.red, color: "#fff", fontSize: 13, fontWeight: 600 }}>
             <Plus size={16} /> Añadir
@@ -1445,12 +1468,38 @@ export default function App({ tripId, tripName, onBack }) {
         {showAddB && (
           <Card style={{ padding: 14, marginBottom: 14 }}>
             <div className="flex gap-2 mb-2">
-              <select value={nb.type} onChange={(e) => setNb({ ...nb, type: e.target.value })} style={{ ...inp, flex: 1, padding: "8px 8px" }}>
+              <select value={nb.type} onChange={(e) => {
+                const type = e.target.value;
+                /* al pasar a Hotel se propone la salida al día siguiente */
+                setNb((n) => ({ ...n, type, dateEnd: type === "Hotel" ? (n.dateEnd || addDaysISO(n.date || todayISO(), 1)) : "" }));
+              }} style={{ ...inp, flex: 1, padding: "8px 8px" }}>
                 {["Vuelo", "Tren", "Hotel", "Actividad"].map((t) => <option key={t}>{t}</option>)}
               </select>
-              <input type="date" value={nb.date} onChange={(e) => setNb({ ...nb, date: e.target.value })} style={{ ...inp, width: "auto", ...mono, fontSize: 12, padding: "8px 8px" }} />
+              {nb.type !== "Hotel" && (
+                <input type="date" value={nb.date} onChange={(e) => setNb({ ...nb, date: e.target.value })} style={{ ...inp, width: "auto", ...mono, padding: "8px 8px" }} />
+              )}
             </div>
-            <input value={nb.title} onChange={(e) => setNb({ ...nb, title: e.target.value })} placeholder="Título (p. ej. Hotel en el centro)" style={{ ...inp, marginBottom: 8 }} />
+            {nb.type === "Hotel" && (
+              <div className="mb-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex-1" style={{ minWidth: 130 }}>
+                    <div style={{ fontSize: 11, color: C.sub, marginBottom: 4 }}>Entrada</div>
+                    <input type="date" value={nb.date} onChange={(e) => {
+                      const v = e.target.value;
+                      setNb((n) => ({ ...n, date: v, dateEnd: n.dateEnd && n.dateEnd <= v ? addDaysISO(v, 1) : n.dateEnd }));
+                    }} style={{ ...inp, ...mono }} />
+                  </div>
+                  <div className="flex-1" style={{ minWidth: 130 }}>
+                    <div style={{ fontSize: 11, color: C.sub, marginBottom: 4 }}>Salida</div>
+                    <input type="date" value={nb.dateEnd || ""} min={nb.date || undefined} onChange={(e) => setNb({ ...nb, dateEnd: e.target.value })} style={{ ...inp, ...mono }} />
+                  </div>
+                </div>
+                {nightsOf(nb) > 0 && (
+                  <div style={{ fontSize: 11.5, color: C.sub, marginTop: 4 }}>{nightsOf(nb)} noche{nightsOf(nb) === 1 ? "" : "s"}</div>
+                )}
+              </div>
+            )}
+            <input value={nb.title} onChange={(e) => setNb({ ...nb, title: e.target.value })} placeholder={nb.type === "Hotel" ? "Título (p. ej. Hotel en el centro)" : "Título (p. ej. Vuelo de ida)"} style={{ ...inp, marginBottom: 8 }} />
             <div className="flex gap-2">
               <input value={nb.detail} onChange={(e) => setNb({ ...nb, detail: e.target.value })} placeholder="Detalle" style={{ ...inp, flex: 1 }} />
               <button onClick={addBooking} className="rounded-lg px-4" style={{ background: C.ink, color: "#fff", fontSize: 13, fontWeight: 600 }}>Guardar</button>
@@ -1465,7 +1514,7 @@ export default function App({ tripId, tripName, onBack }) {
           return (
             <div key={type} className="mb-4">
               <div className="flex items-center gap-2 mb-2 px-1" style={{ color: C.sub, fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
-                <Ic size={14} /> {type === "Actividad" ? "Actividades" : type + "s"}
+                <Ic size={14} /> {bPlural[type] || type}
               </div>
               <div className="flex flex-col gap-2">
                 {arr.map((b) => {
@@ -1484,6 +1533,7 @@ export default function App({ tripId, tripName, onBack }) {
                                 {b.cur && b.cur !== currency.base ? ` · ${money(toBase(b.price, b.cur))}` : ""}
                               </span>
                             )}
+                            {b.paid && stateChip("Pagado", true)}
                             {b.paidBy && <span style={{ fontSize: 10.5, fontWeight: 700, color: PAYER_COLOR[b.paidBy] }}>{payerNames[b.paidBy]}</span>}
                             {b.ref && <span style={{ ...mono, fontSize: 11, color: C.sub, fontWeight: 700 }}>{b.ref}</span>}
                             {b.link && <Link2 size={12} color={C.sub} />}
@@ -1865,9 +1915,14 @@ export default function App({ tripId, tripName, onBack }) {
                 <Field label="¿Quién la pagó?" hint="Se usa para el balance de gastos.">
                   {renderPayerPicker(bk.paidBy || "", (v) => patchBk({ paidBy: v }), true)}
                 </Field>
-                <button onClick={() => patchBk({ status: bk.status === "confirmado" ? "pendiente" : "confirmado" })} className="w-full flex items-center gap-3 rounded-xl px-4 py-3 mb-3" style={{ background: C.card, border: `1px solid ${bk.status === "confirmado" ? C.jade + "66" : C.line}` }}>
-                  <CheckBox on={bk.status === "confirmado"} /><span style={{ fontSize: 14, fontWeight: 600, color: C.ink }}>Confirmada</span>
-                </button>
+                <div className="flex gap-2 mb-3">
+                  <button onClick={() => patchBk({ status: bk.status === "confirmado" ? "pendiente" : "confirmado" })} className="flex-1 flex items-center gap-2.5 rounded-xl px-4 py-3" style={{ background: C.card, border: `1px solid ${bk.status === "confirmado" ? C.jade + "66" : C.line}` }}>
+                    <CheckBox on={bk.status === "confirmado"} /><span style={{ fontSize: 14, fontWeight: 600, color: C.ink }}>Reservado</span>
+                  </button>
+                  <button onClick={() => patchBk({ paid: !bk.paid })} className="flex-1 flex items-center gap-2.5 rounded-xl px-4 py-3" style={{ background: C.card, border: `1px solid ${bk.paid ? C.jade + "66" : C.line}` }}>
+                    <CheckBox on={!!bk.paid} /><span style={{ fontSize: 14, fontWeight: 600, color: C.ink }}>Pagado</span>
+                  </button>
+                </div>
                 <Field label="Localizador / referencia"><input value={bk.ref || ""} onChange={(e) => patchBk({ ref: e.target.value })} placeholder="Código de reserva" style={{ ...inp, ...mono }} /></Field>
                 {renderLinkField(bk.link, (v) => patchBk({ link: v }))}
                 <Field label="Notas"><textarea value={bk.notes || ""} onChange={(e) => patchBk({ notes: e.target.value })} rows={3} placeholder="Detalles de la reserva…" style={{ ...inp, resize: "none" }} /></Field>
