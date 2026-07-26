@@ -3,7 +3,7 @@ import {
   Plane, Train, Calendar, Wallet, Luggage, FileText, MapPin, Check, Plus,
   Trash2, ChevronDown, ChevronRight, ChevronLeft, Building2, Sparkles, AlertCircle,
   CreditCard, Wifi, Globe, Paperclip, Download, StickyNote, X,
-  Pencil, Bus, Car, Ship, ListChecks, ClipboardList, Image as ImageIcon, GripVertical, Link2, ExternalLink, BookOpen, Menu, ChevronsDownUp, ChevronsUpDown,
+  Pencil, Bus, Car, Ship, ListChecks, ClipboardList, Image as ImageIcon, GripVertical, Link2, ExternalLink, BookOpen, Menu, ChevronsDownUp, ChevronsUpDown, SlidersHorizontal,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { store } from "./store";
@@ -205,6 +205,9 @@ export default function App({ tripId, tripName, onBack }) {
   const [editPayers, setEditPayers] = useState(false);
   /* base = la moneda en la que quieres ver los totales; trip = la del destino. */
   const [currency, setCurrency] = useState({ base: "EUR", trip: "EUR" });
+  /* Filtros de la pantalla de Gastos (no se guardan: son de la sesión). */
+  const [filters, setFilters] = useState({ view: "conjunto", person: "", cat: "", paid: "" });
+  const [showFilters, setShowFilters] = useState(false);
   const [rateUpdated, setRateUpdated] = useState("");
   const [rateBusy, setRateBusy] = useState(false);
   const [rateErr, setRateErr] = useState("");
@@ -683,6 +686,25 @@ export default function App({ tripId, tripName, onBack }) {
     } finally { setRateBusy(false); }
   };
 
+  /* Control segmentado de los filtros de Gastos. */
+  const renderSeg = (label, value, options, onChange) => (
+    <div>
+      <div style={{ fontSize: 11, color: C.sub, marginBottom: 5, fontWeight: 600 }}>{label}</div>
+      <div className="flex gap-1.5">
+        {options.map(([v, l]) => {
+          const on = value === v;
+          return (
+            <button key={v || "all"} onClick={() => onChange(v)} className="flex-1 rounded-lg py-2" style={{
+              fontSize: 12.5, fontWeight: 700, border: `1.5px solid ${on ? C.red : C.line}`,
+              background: on ? C.red + "14" : C.card, color: on ? C.redDeep : C.sub,
+              whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+            }}>{l}</button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   /* Etiqueta de estado (Reservado / Pagado): verde si está hecho, gris si no. */
   const stateChip = (label, on) => (
     <span style={{
@@ -713,13 +735,29 @@ export default function App({ tripId, tripName, onBack }) {
   const tripDates = minDate && maxDate ? { min: minDate, max: maxDate } : {};
   const clampTrip = (v) => (!v || !minDate || !maxDate) ? v : (v < minDate ? minDate : (v > maxDate ? maxDate : v));
   const tripDay = () => clampTrip(todayISO());
-  const routeExpenses = itin.flatMap((c) => c.days.flatMap((d) => d.items.filter((a) => a.price && a.price > 0).map((a) => ({ id: a.id, cityId: c.id, dayId: d.id, name: a.x || c.city, city: c.city, date: d.date, cat: TYPE_TO_CAT[a.type] || "Actividades", amount: a.price, cur: a.cur || "EUR", paidBy: a.paidBy || "" }))));
+  const routeExpenses = itin.flatMap((c) => c.days.flatMap((d) => d.items.filter((a) => a.price && a.price > 0).map((a) => ({ id: a.id, cityId: c.id, dayId: d.id, name: a.x || c.city, city: c.city, date: d.date, cat: TYPE_TO_CAT[a.type] || "Actividades", amount: a.price, cur: a.cur || "EUR", paidBy: a.paidBy || "", paid: !!a.booked }))));
   /* Reservas con precio: cuentan como gasto en la categoría de su tipo. */
   const bookingExpenses = bookings.filter((b) => b.price && b.price > 0).map((b) => ({
     id: b.id, name: b.title || b.type, type: b.type, date: b.date, dateEnd: b.dateEnd,
     cat: BOOKING_TO_CAT[b.type] || "Otros", amount: b.price, cur: b.cur || currency.base, paidBy: b.paidBy || "",
     booked: b.status === "confirmado", paid: !!b.paid,
   }));
+
+  /* ---- filtros de la pantalla de Gastos ----
+     Un gasto manual se apunta cuando ya lo has pagado, así que cuenta siempre
+     como pagado. En la ruta, «pagado» es la casilla «Comprado / reservado» de
+     la actividad; en reservas, la casilla «Pagado». */
+  const fOn = filters.person || filters.cat || filters.paid;
+  const fMatch = (it) =>
+    (!filters.person || it.paidBy === filters.person) &&
+    (!filters.cat || it.cat === filters.cat) &&
+    (!filters.paid || (filters.paid === "si" ? it.paid : !it.paid));
+  const expensesShown = expenses.filter((e) => fMatch({ cat: e.cat, paidBy: e.paidBy, paid: true }));
+  const routeShown = routeExpenses.filter(fMatch);
+  const bookingShown = bookingExpenses.filter(fMatch);
+  /* Vista individual: lo que pone cada uno, es decir, la mitad. */
+  const share = filters.view === "individual" ? 2 : 1;
+  const sumOf = (arr, amountKey) => arr.reduce((s, e) => s + toBase(e[amountKey], e.cur), 0);
   const manualTotal = expenses.reduce((s, e) => s + toBase(e.amount, e.cur), 0);
   const routeTotal = routeExpenses.reduce((s, e) => s + toBase(e.amount, e.cur), 0);
   const bookingTotal = bookingExpenses.reduce((s, e) => s + toBase(e.amount, e.cur), 0);
@@ -727,6 +765,18 @@ export default function App({ tripId, tripName, onBack }) {
   const catTotals = {};
   [...expenses.map((e) => ({ cat: e.cat, v: toBase(e.amount, e.cur) })), ...routeExpenses.map((e) => ({ cat: e.cat, v: toBase(e.amount, e.cur) })), ...bookingExpenses.map((e) => ({ cat: e.cat, v: toBase(e.amount, e.cur) }))].forEach(({ cat, v }) => { catTotals[cat] = (catTotals[cat] || 0) + v; });
   const pieData = EXP_CATS.map((c) => ({ name: c, value: catTotals[c] || 0 })).filter((d) => d.value > 0);
+  /* Totales de la pantalla de Gastos: responden a los filtros y a la vista
+     individual. Los de arriba (sin filtrar) son los que usan Resumen y el PDF. */
+  const vManual = sumOf(expensesShown, "amount") / share;
+  const vRoute = sumOf(routeShown, "amount") / share;
+  const vBooking = sumOf(bookingShown, "amount") / share;
+  const vTotal = vManual + vRoute + vBooking;
+  const vBudget = budget / share;
+  const vCatTotals = {};
+  [...expensesShown, ...routeShown, ...bookingShown].forEach((e) => {
+    vCatTotals[e.cat] = (vCatTotals[e.cat] || 0) + toBase(e.amount, e.cur) / share;
+  });
+  const vPieData = EXP_CATS.map((c) => ({ name: c, value: vCatTotals[c] || 0 })).filter((d) => d.value > 0);
   /* balance entre las dos personas: reparto 50/50 de todo lo que tenga pagador asignado */
   const paidBy = { fa: 0, ruben: 0 };
   let unassignedPaid = 0;
@@ -1009,7 +1059,7 @@ export default function App({ tripId, tripName, onBack }) {
         <Card style={{ padding: 16 }}>
           <div style={{ color: C.sub, fontSize: 12, fontWeight: 600 }}>Gastado</div>
           <div style={{ fontSize: 26, fontWeight: 800, color: C.ink, lineHeight: 1.1 }}>{money(totalSpent)}</div>
-          <div style={{ color: C.sub, fontSize: 11 }}>{expenses.length + routeExpenses.length} gasto{expenses.length + routeExpenses.length === 1 ? "" : "s"}</div>
+          <div style={{ color: C.sub, fontSize: 11 }}>{expenses.length + routeExpenses.length + bookingExpenses.length} gasto{expenses.length + routeExpenses.length + bookingExpenses.length === 1 ? "" : "s"}</div>
         </Card>
       </div>
 
@@ -1270,17 +1320,53 @@ export default function App({ tripId, tripName, onBack }) {
         <div style={{ color: C.sub, fontSize: 13 }}>Incluye los precios de las actividades de la ruta.{twoCurrencies ? ` Cambio: 1 ${currency.base} ≈ ${rate} ${currency.trip}` : ""}</div>
       </div>
 
+      <Card style={{ padding: 12, marginBottom: 14 }}>
+        <button onClick={() => setShowFilters((v) => !v)} className="w-full flex items-center gap-2">
+          <SlidersHorizontal size={15} color={fOn || share > 1 ? C.red : C.sub} />
+          <span style={{ fontSize: 13.5, fontWeight: 700, color: C.ink }}>Filtros</span>
+          {(fOn || share > 1) && (
+            <span style={{ fontSize: 10.5, fontWeight: 700, color: "#fff", background: C.red, borderRadius: 99, padding: "1px 7px" }}>
+              {[filters.person, filters.cat, filters.paid, share > 1 ? "x" : ""].filter(Boolean).length}
+            </span>
+          )}
+          <span className="flex-1" />
+          {showFilters ? <ChevronDown size={17} color={C.sub} /> : <ChevronRight size={17} color={C.sub} />}
+        </button>
+
+        {showFilters && (
+          <div className="mt-3 flex flex-col gap-3">
+            {renderSeg("Cálculo", filters.view, [["conjunto", "Conjunto"], ["individual", `Individual`]], (v) => setFilters((f) => ({ ...f, view: v })))}
+            {renderSeg("Persona", filters.person, [["", "Todos"], ["fa", payerNames.fa], ["ruben", payerNames.ruben]], (v) => setFilters((f) => ({ ...f, person: v })))}
+            {renderSeg("Estado", filters.paid, [["", "Todo"], ["si", "Pagado"], ["no", "Sin pagar"]], (v) => setFilters((f) => ({ ...f, paid: v })))}
+            <div>
+              <div style={{ fontSize: 11, color: C.sub, marginBottom: 5, fontWeight: 600 }}>Categoría</div>
+              <select value={filters.cat} onChange={(e) => setFilters((f) => ({ ...f, cat: e.target.value }))} style={inp}>
+                <option value="">Todas las categorías</option>
+                {EXP_CATS.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            {(fOn || share > 1) && (
+              <button onClick={() => setFilters({ view: "conjunto", person: "", cat: "", paid: "" })} style={{ fontSize: 12.5, color: C.red, fontWeight: 600 }}>
+                Quitar todos los filtros
+              </button>
+            )}
+          </div>
+        )}
+      </Card>
+
       <Card style={{ padding: 18, marginBottom: 14 }}>
         <div className="flex justify-between items-end mb-3">
           <div>
-            <div style={{ color: C.sub, fontSize: 12, fontWeight: 600 }}>Total</div>
-            <div style={{ fontSize: 34, fontWeight: 800, color: C.ink }}>{money(totalSpent)}</div>
-            <div style={{ color: C.sub, fontSize: 11 }}>Reservas {money(bookingTotal)} · Ruta {money(routeTotal)} · Manual {money(manualTotal)}</div>
+            <div style={{ color: C.sub, fontSize: 12, fontWeight: 600 }}>
+              {share > 1 ? "Por persona" : "Total"}{fOn ? " (filtrado)" : ""}
+            </div>
+            <div style={{ fontSize: 34, fontWeight: 800, color: C.ink }}>{money(vTotal)}</div>
+            <div style={{ color: C.sub, fontSize: 11 }}>Reservas {money(vBooking)} · Ruta {money(vRoute)} · Manual {money(vManual)}</div>
           </div>
           {budget > 0 && (
             <div style={{ textAlign: "right" }}>
-              <div style={{ color: C.sub, fontSize: 11 }}>de {money(budget)}</div>
-              <div style={{ color: totalSpent > budget ? C.red : C.jade, fontSize: 13, fontWeight: 700 }}>{totalSpent > budget ? "+" : ""}{money(Math.abs(budget - totalSpent))}</div>
+              <div style={{ color: C.sub, fontSize: 11 }}>de {money(vBudget)}</div>
+              <div style={{ color: vTotal > vBudget ? C.red : C.jade, fontSize: 13, fontWeight: 700 }}>{vTotal > vBudget ? "+" : ""}{money(Math.abs(vBudget - vTotal))}</div>
             </div>
           )}
         </div>
@@ -1289,21 +1375,21 @@ export default function App({ tripId, tripName, onBack }) {
             <div style={{ height: "100%", width: `${Math.min(100, (totalSpent / budget) * 100)}%`, background: totalSpent > budget ? C.red : C.jade }} />
           </div>
         )}
-        {pieData.length > 0 && (
+        {vPieData.length > 0 && (
           <div style={{ height: 170, marginTop: 8 }}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={42} outerRadius={70} paddingAngle={2}>
-                  {pieData.map((d) => <Cell key={d.name} fill={EXP_COLORS[d.name]} />)}
+                <Pie data={vPieData} dataKey="value" nameKey="name" innerRadius={42} outerRadius={70} paddingAngle={2}>
+                  {vPieData.map((d) => <Cell key={d.name} fill={EXP_COLORS[d.name]} />)}
                 </Pie>
                 <Tooltip formatter={(v) => money(v)} />
               </PieChart>
             </ResponsiveContainer>
           </div>
         )}
-        {pieData.length > 0 && (
+        {vPieData.length > 0 && (
           <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 justify-center">
-            {pieData.map((d) => (
+            {vPieData.map((d) => (
               <div key={d.name} className="flex items-center gap-1.5" style={{ fontSize: 11, color: C.sub }}>
                 <span style={{ width: 9, height: 9, borderRadius: 99, background: EXP_COLORS[d.name] }} /> {d.name} {money(d.value)}
               </div>
@@ -1349,6 +1435,9 @@ export default function App({ tripId, tripName, onBack }) {
         {unassignedPaid > 0.005 && (
           <div style={{ fontSize: 11, color: C.sub, marginTop: 8, textAlign: "center" }}>{money(unassignedPaid)} sin asignar a una persona (no cuentan en el balance).</div>
         )}
+        {(fOn || share > 1) && (
+          <div style={{ fontSize: 11, color: C.sub, marginTop: 8, textAlign: "center" }}>El balance siempre tiene en cuenta todos los gastos, sin filtros.</div>
+        )}
       </Card>
 
       <Card style={{ padding: 14, marginBottom: 14 }}>
@@ -1371,9 +1460,9 @@ export default function App({ tripId, tripName, onBack }) {
         </div>
       </Card>
 
-      {expenses.length > 0 && (
+      {expensesShown.length > 0 && (
         <div className="flex flex-col gap-2 mb-4">
-          {expenses.map((e) => (
+          {expensesShown.map((e) => (
             <div key={e.id} className="flex items-center gap-3 rounded-xl px-4 py-3" style={{ background: C.card, border: `1px solid ${C.line}` }}>
               <button onClick={() => setEditing({ kind: "expense", id: e.id })} className="flex items-center gap-3 flex-1 min-w-0 text-left">
                 <span style={{ width: 8, height: 8, borderRadius: 99, background: EXP_COLORS[e.cat], flexShrink: 0 }} />
@@ -1393,13 +1482,13 @@ export default function App({ tripId, tripName, onBack }) {
         </div>
       )}
 
-      {bookingExpenses.length > 0 && (
+      {bookingShown.length > 0 && (
         <div className="mb-4">
           <div className="px-1 mb-2 flex items-center gap-1.5" style={{ color: C.sub, fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
             <FileText size={13} /> Gastos de reservas
           </div>
           <div className="flex flex-col gap-2">
-            {bookingExpenses.map((e) => (
+            {bookingShown.map((e) => (
               <button key={e.id} onClick={() => { setAttErr(""); setEditing({ kind: "booking", id: e.id }); }}
                 className="flex items-center gap-3 rounded-xl px-4 py-3 text-left" style={{ background: C.card, border: `1px solid ${C.line}` }}>
                 <span style={{ width: 8, height: 8, borderRadius: 99, background: EXP_COLORS[e.cat], flexShrink: 0 }} />
@@ -1422,13 +1511,13 @@ export default function App({ tripId, tripName, onBack }) {
         </div>
       )}
 
-      {routeExpenses.length > 0 && (
+      {routeShown.length > 0 && (
         <div className="mb-4">
           <div className="px-1 mb-2 flex items-center gap-1.5" style={{ color: C.sub, fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
             <MapPin size={13} /> Gastos de la ruta
           </div>
           <div className="flex flex-col gap-2">
-            {routeExpenses.map((e) => (
+            {routeShown.map((e) => (
               <button key={e.id} onClick={() => { setAttErr(""); setEditing({ kind: "act", cityId: e.cityId, dayId: e.dayId, actId: e.id }); }}
                 className="flex items-center gap-3 rounded-xl px-4 py-3 text-left" style={{ background: C.card, border: `1px solid ${C.line}` }}>
                 <span style={{ width: 8, height: 8, borderRadius: 99, background: EXP_COLORS[e.cat], flexShrink: 0 }} />
@@ -1442,6 +1531,13 @@ export default function App({ tripId, tripName, onBack }) {
             ))}
           </div>
         </div>
+      )}
+
+      {fOn && expensesShown.length + routeShown.length + bookingShown.length === 0 && (
+        <Card style={{ padding: 18, marginBottom: 14, textAlign: "center" }}>
+          <div style={{ fontSize: 13.5, color: C.ink, fontWeight: 600 }}>Ningún gasto coincide con los filtros</div>
+          <button onClick={() => setFilters({ view: filters.view, person: "", cat: "", paid: "" })} style={{ fontSize: 12.5, color: C.red, fontWeight: 700, marginTop: 6 }}>Quitar filtros</button>
+        </Card>
       )}
 
       <Card style={{ padding: 14 }}>
