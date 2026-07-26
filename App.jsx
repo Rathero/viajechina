@@ -526,6 +526,13 @@ export default function App({ tripId, tripName, onBack }) {
     setBookings((prev) => prev.filter((x) => x.id !== editing.id));
     setEditing(null);
   };
+  /* Al abrir el formulario, la fecha propuesta cae dentro del viaje: si hoy
+     queda fuera (lo normal al planificar), se usa el primer día. */
+  const openAddBooking = () => {
+    setShowAddB((v) => !v);
+    const d = tripDay();
+    setNb((n) => ({ ...n, date: d, dateEnd: n.type === "Hotel" ? clampTrip(addDaysISO(d, 1)) : "" }));
+  };
   const addBooking = () => {
     if (!nb.title.trim()) return;
     setBookings((x) => [...x, {
@@ -603,7 +610,7 @@ export default function App({ tripId, tripName, onBack }) {
     if (!nd.text.trim() && !nd.title.trim()) return;
     const id = "j" + Date.now();
     setDiary((x) => [...x, { id, date: nd.date || todayISO(), title: nd.title.trim(), text: nd.text.trim(), att: [] }]);
-    setNd({ date: todayISO(), title: "", text: "" });
+    setNd({ date: tripDay(), title: "", text: "" });
     setShowAddDiary(false);
     setAttErr("");
     setEditing({ kind: "diary", id }); // abrir para añadir fotos
@@ -690,8 +697,17 @@ export default function App({ tripId, tripName, onBack }) {
   const allDays = itin.flatMap((c) => c.days);
   const allActs = itin.flatMap((c) => c.days.flatMap((d) => d.items));
   const actsBooked = allActs.filter((a) => a.booked).length;
-  const dates = allDays.filter((d) => d.date).map((d) => d.date).sort();
+  /* Fechas únicas: el día que cambias de ciudad está en dos paradas y no debe
+     contarse dos veces en la duración del viaje. */
+  const dates = [...new Set(allDays.filter((d) => d.date).map((d) => d.date))].sort();
   const minDate = dates[0] || null, maxDate = dates[dates.length - 1] || null;
+  /* Reservas y diario solo admiten días del viaje: el calendario nativo bloquea
+     el resto y se abre directamente en el mes de inicio. No se aplica a los días
+     de la ruta ni a las paradas, que son justamente los que definen esas fechas,
+     ni a los gastos (los vuelos se pagan meses antes). */
+  const tripDates = minDate && maxDate ? { min: minDate, max: maxDate } : {};
+  const clampTrip = (v) => (!v || !minDate || !maxDate) ? v : (v < minDate ? minDate : (v > maxDate ? maxDate : v));
+  const tripDay = () => clampTrip(todayISO());
   const routeExpenses = itin.flatMap((c) => c.days.flatMap((d) => d.items.filter((a) => a.price && a.price > 0).map((a) => ({ id: a.id, cityId: c.id, dayId: d.id, name: a.x || c.city, city: c.city, date: d.date, cat: TYPE_TO_CAT[a.type] || "Actividades", amount: a.price, cur: a.cur || "EUR", paidBy: a.paidBy || "" }))));
   /* Reservas con precio: cuentan como gasto en la categoría de su tipo. */
   const bookingExpenses = bookings.filter((b) => b.price && b.price > 0).map((b) => ({
@@ -720,8 +736,16 @@ export default function App({ tripId, tripName, onBack }) {
   const bookConfirmed = bookings.filter((b) => b.status === "confirmado").length;
   const bookPaid = bookings.filter((b) => b.paid).length;
   const packDone = packing.filter((p) => p.done).length;
-  const dateColor = {}, dateCityId = {};
-  itin.forEach((c) => c.days.forEach((d) => { if (d.date) { dateColor[d.date] = c.color; dateCityId[d.date] = c.id; } }));
+  /* Un mismo día puede estar en dos paradas (el día que cambias de ciudad).
+     Se guardan todas en orden de ruta: la primera es de la que sales y la
+     última, donde duermes. */
+  const dateCities = {};
+  itin.forEach((c) => c.days.forEach((d) => {
+    if (!d.date) return;
+    const arr = dateCities[d.date] || (dateCities[d.date] = []);
+    if (!arr.some((x) => x.id === c.id)) arr.push({ id: c.id, color: c.color, city: c.city });
+  }));
+  const splitDays = Object.values(dateCities).filter((a) => a.length > 1).length;
   const months = minDate && maxDate ? monthsBetween(minDate, maxDate) : [];
 
   const countdown = (() => {
@@ -926,10 +950,17 @@ export default function App({ tripId, tripName, onBack }) {
     for (let i = 0; i < off; i++) cells.push(<div key={"e" + i} />);
     for (let d = 1; d <= ndays; d++) {
       const iso = `${year}-${String(mIdx + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-      const col = dateColor[iso], cid = dateCityId[iso];
+      const cs = dateCities[iso] || [];
+      const on = cs.length > 0;
+      /* Un color a plano; varios, franjas verticales iguales (izquierda = de
+         donde sales, derecha = donde duermes). */
+      const bg = !on ? "transparent"
+        : cs.length === 1 ? cs[0].color
+        : `linear-gradient(90deg, ${cs.map((c, i) => `${c.color} ${(i * 100) / cs.length}% ${((i + 1) * 100) / cs.length}%`).join(", ")})`;
       cells.push(
-        <button key={iso} onClick={col ? () => goToCity(cid) : undefined} disabled={!col}
-          style={{ height: 34, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12.5, fontWeight: col ? 700 : 500, background: col || "transparent", color: col ? "#fff" : "#AAB8C2", cursor: col ? "pointer" : "default", border: "none" }}>{d}</button>
+        <button key={iso} onClick={on ? () => goToCity(cs[cs.length - 1].id) : undefined} disabled={!on}
+          title={on ? cs.map((c) => c.city).join(" → ") : undefined}
+          style={{ height: 34, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12.5, fontWeight: on ? 700 : 500, background: bg, color: on ? "#fff" : "#AAB8C2", cursor: on ? "pointer" : "default", border: "none", textShadow: cs.length > 1 ? "0 0 3px rgba(0,0,0,0.45)" : "none" }}>{d}</button>
       );
     }
     return (
@@ -995,6 +1026,12 @@ export default function App({ tripId, tripName, onBack }) {
                 </button>
               ))}
             </div>
+            {splitDays > 0 && (
+              <div className="flex items-center gap-2 mt-2.5" style={{ fontSize: 11, color: C.sub }}>
+                <span style={{ width: 16, height: 10, borderRadius: 3, background: `linear-gradient(90deg, ${C.sub}55 0 50%, ${C.sub} 50% 100%)`, flexShrink: 0 }} />
+                Día de cambio de ciudad: a la izquierda de la que sales, a la derecha donde duermes.
+              </div>
+            )}
           </>
         )}
       </Card>
@@ -1460,7 +1497,7 @@ export default function App({ tripId, tripName, onBack }) {
             <div style={{ fontSize: 22, fontWeight: 800, color: C.ink }}>Reservas</div>
             <div style={{ color: C.sub, fontSize: 13 }}>{bookings.length ? `${bookConfirmed} de ${bookings.length} reservadas · ${bookPaid} pagadas` : "Vuelos, trenes y hoteles"}</div>
           </div>
-          <button onClick={() => setShowAddB((v) => !v)} className="flex items-center gap-1 rounded-lg px-3 py-2" style={{ background: C.red, color: "#fff", fontSize: 13, fontWeight: 600 }}>
+          <button onClick={openAddBooking} className="flex items-center gap-1 rounded-lg px-3 py-2" style={{ background: C.red, color: "#fff", fontSize: 13, fontWeight: 600 }}>
             <Plus size={16} /> Añadir
           </button>
         </div>
@@ -1476,7 +1513,7 @@ export default function App({ tripId, tripName, onBack }) {
                 {["Vuelo", "Tren", "Hotel", "Actividad"].map((t) => <option key={t}>{t}</option>)}
               </select>
               {nb.type !== "Hotel" && (
-                <input type="date" value={nb.date} onChange={(e) => setNb({ ...nb, date: e.target.value })} style={{ ...inp, width: "auto", ...mono, padding: "8px 8px" }} />
+                <input type="date" {...tripDates} value={nb.date} onChange={(e) => setNb({ ...nb, date: clampTrip(e.target.value) })} style={{ ...inp, width: "auto", ...mono, padding: "8px 8px" }} />
               )}
             </div>
             {nb.type === "Hotel" && (
@@ -1484,14 +1521,14 @@ export default function App({ tripId, tripName, onBack }) {
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="flex-1" style={{ minWidth: 130 }}>
                     <div style={{ fontSize: 11, color: C.sub, marginBottom: 4 }}>Entrada</div>
-                    <input type="date" value={nb.date} onChange={(e) => {
-                      const v = e.target.value;
-                      setNb((n) => ({ ...n, date: v, dateEnd: n.dateEnd && n.dateEnd <= v ? addDaysISO(v, 1) : n.dateEnd }));
+                    <input type="date" {...tripDates} value={nb.date} onChange={(e) => {
+                      const v = clampTrip(e.target.value);
+                      setNb((n) => ({ ...n, date: v, dateEnd: n.dateEnd && n.dateEnd <= v ? clampTrip(addDaysISO(v, 1)) : n.dateEnd }));
                     }} style={{ ...inp, ...mono }} />
                   </div>
                   <div className="flex-1" style={{ minWidth: 130 }}>
                     <div style={{ fontSize: 11, color: C.sub, marginBottom: 4 }}>Salida</div>
-                    <input type="date" value={nb.dateEnd || ""} min={nb.date || undefined} onChange={(e) => setNb({ ...nb, dateEnd: e.target.value })} style={{ ...inp, ...mono }} />
+                    <input type="date" {...tripDates} value={nb.dateEnd || ""} min={nb.date || tripDates.min} onChange={(e) => setNb({ ...nb, dateEnd: clampTrip(e.target.value) })} style={{ ...inp, ...mono }} />
                   </div>
                 </div>
                 {nightsOf(nb) > 0 && (
@@ -1715,7 +1752,7 @@ export default function App({ tripId, tripName, onBack }) {
             <div style={{ fontSize: 22, fontWeight: 800, color: C.ink }}>Diario</div>
             <div style={{ color: C.sub, fontSize: 13 }}>Recuerdos del viaje, día a día.</div>
           </div>
-          <button onClick={() => setShowAddDiary((v) => !v)} className="flex items-center gap-1 rounded-lg px-3 py-2" style={{ background: C.red, color: "#fff", fontSize: 13, fontWeight: 600 }}>
+          <button onClick={() => { setShowAddDiary((v) => !v); setNd((n) => ({ ...n, date: tripDay() })); }} className="flex items-center gap-1 rounded-lg px-3 py-2" style={{ background: C.red, color: "#fff", fontSize: 13, fontWeight: 600 }}>
             <Plus size={16} /> Entrada
           </button>
         </div>
@@ -1723,11 +1760,11 @@ export default function App({ tripId, tripName, onBack }) {
         {showAddDiary && (
           <Card style={{ padding: 14, marginBottom: 14 }}>
             <div style={{ fontSize: 11, color: C.sub, marginBottom: 4 }}>Día</div>
-            <input type="date" value={nd.date} onChange={(e) => setNd({ ...nd, date: e.target.value })} style={{ ...inp, ...mono, fontSize: 12, marginBottom: 8 }} />
+            <input type="date" {...tripDates} value={nd.date} onChange={(e) => setNd({ ...nd, date: clampTrip(e.target.value) })} style={{ ...inp, ...mono, marginBottom: 8 }} />
             <input value={nd.title} onChange={(e) => setNd({ ...nd, title: e.target.value })} placeholder="Título (opcional)" style={{ ...inp, marginBottom: 8 }} />
             <textarea value={nd.text} onChange={(e) => setNd({ ...nd, text: e.target.value })} rows={4} placeholder="¿Qué habéis hecho hoy? ¿Qué queréis recordar?" style={{ ...inp, resize: "none", marginBottom: 8 }} />
             <div className="flex gap-2">
-              <button onClick={() => { setShowAddDiary(false); setNd({ date: todayISO(), title: "", text: "" }); }} className="flex-1 rounded-lg py-2" style={{ border: `1px solid ${C.line}`, background: C.card, color: C.sub, fontSize: 13, fontWeight: 600 }}>Cancelar</button>
+              <button onClick={() => { setShowAddDiary(false); setNd({ date: tripDay(), title: "", text: "" }); }} className="flex-1 rounded-lg py-2" style={{ border: `1px solid ${C.line}`, background: C.card, color: C.sub, fontSize: 13, fontWeight: 600 }}>Cancelar</button>
               <button onClick={addDiaryEntry} disabled={!nd.text.trim() && !nd.title.trim()} className="flex-1 rounded-lg py-2" style={{ background: C.red, color: "#fff", fontSize: 13, fontWeight: 700, opacity: (nd.text.trim() || nd.title.trim()) ? 1 : 0.5 }}>Crear y añadir fotos</button>
             </div>
           </Card>
@@ -1883,19 +1920,19 @@ export default function App({ tripId, tripName, onBack }) {
                 <div className="flex gap-2">
                   <div className="flex-1"><Field label="Tipo"><select value={bk.type} onChange={(e) => patchBk({ type: e.target.value })} style={inp}>{["Vuelo", "Tren", "Hotel", "Actividad"].map((t) => <option key={t}>{t}</option>)}</select></Field></div>
                   {bk.type !== "Hotel" && (
-                    <div style={{ width: 150 }}><Field label="Fecha"><input type="date" value={bk.date || ""} onChange={(e) => patchBk({ date: e.target.value })} style={{ ...inp, ...mono, fontSize: 14 }} /></Field></div>
+                    <div style={{ width: 150 }}><Field label="Fecha"><input type="date" {...tripDates} value={bk.date || ""} onChange={(e) => patchBk({ date: clampTrip(e.target.value) })} style={{ ...inp, ...mono, fontSize: 14 }} /></Field></div>
                   )}
                 </div>
                 {bk.type === "Hotel" && (
                   <Field label="Entrada y salida" hint={nightsOf(bk) ? `${nightsOf(bk)} noche${nightsOf(bk) === 1 ? "" : "s"}` : "Elige el día de entrada y el de salida."}>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <input type="date" value={bk.date || ""} onChange={(e) => {
-                        const v = e.target.value;
+                      <input type="date" {...tripDates} value={bk.date || ""} onChange={(e) => {
+                        const v = clampTrip(e.target.value);
                         /* si la salida queda antes que la entrada, se ajusta sola */
-                        patchBk(bk.dateEnd && bk.dateEnd <= v ? { date: v, dateEnd: addDaysISO(v, 1) } : { date: v });
+                        patchBk(bk.dateEnd && bk.dateEnd <= v ? { date: v, dateEnd: clampTrip(addDaysISO(v, 1)) } : { date: v });
                       }} style={{ ...inp, ...mono, width: 150 }} />
                       <span style={{ color: C.sub, fontWeight: 700 }}>→</span>
-                      <input type="date" value={bk.dateEnd || ""} min={bk.date || undefined} onChange={(e) => patchBk({ dateEnd: e.target.value })} style={{ ...inp, ...mono, width: 150 }} />
+                      <input type="date" {...tripDates} value={bk.dateEnd || ""} min={bk.date || tripDates.min} onChange={(e) => patchBk({ dateEnd: clampTrip(e.target.value) })} style={{ ...inp, ...mono, width: 150 }} />
                     </div>
                   </Field>
                 )}
@@ -2000,7 +2037,7 @@ export default function App({ tripId, tripName, onBack }) {
 
             {k === "diary" && (
               <>
-                <Field label="Día"><input type="date" value={dia.date || ""} onChange={(e) => patchDiary({ date: e.target.value })} style={{ ...inp, ...mono }} /></Field>
+                <Field label="Día"><input type="date" {...tripDates} value={dia.date || ""} onChange={(e) => patchDiary({ date: clampTrip(e.target.value) })} style={{ ...inp, ...mono }} /></Field>
                 <Field label="Título"><input value={dia.title || ""} onChange={(e) => patchDiary({ title: e.target.value })} placeholder="Un título para el día (opcional)" style={inp} /></Field>
                 <Field label="¿Qué recordar de hoy?"><textarea value={dia.text || ""} onChange={(e) => patchDiary({ text: e.target.value })} rows={6} placeholder="Escribe aquí tu recuerdo del día…" style={{ ...inp, resize: "none" }} /></Field>
                 {renderAttachments(attList)}
