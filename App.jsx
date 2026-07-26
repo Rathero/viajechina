@@ -147,6 +147,8 @@ const EXP_CATS = ["Vuelos", "Alojamiento", "Transporte", "Comida", "Actividades"
 const EXP_COLORS = { Vuelos: "#3D6FA6", Alojamiento: "#FF5A3C", Transporte: "#C9962E", Comida: "#E0883B", Actividades: "#1CA6A6", Compras: "#7E5BA6", Otros: "#7E8C95" };
 const PACK_CATS = ["Documentos", "Ropa", "Electrónica", "Aseo y salud", "Otros"];
 const TYPE_TO_CAT = { comida: "Comida", traslado: "Transporte", logistica: "Otros", historia: "Actividades", cultura: "Actividades", naturaleza: "Actividades", tech: "Actividades" };
+/* Cada tipo de reserva cuenta en su categoría de gasto. */
+const BOOKING_TO_CAT = { Vuelo: "Vuelos", Tren: "Transporte", Hotel: "Alojamiento", Actividad: "Actividades" };
 /* Personas que comparten gastos: Fa (yo) y Rubén */
 /* Las dos personas que comparten gastos. Las claves ("fa"/"ruben") son internas y
    no se muestran nunca: los nombres visibles se guardan por viaje en `payerNames`. */
@@ -256,7 +258,7 @@ export default function App({ tripId, tripName, onBack }) {
             it.forEach((c) => c.days.forEach((dd) => { dayDefaults[dd.id] = !(dd.date && dd.date < today); }));
             setOpenDay(dayDefaults);
           }
-          if (Array.isArray(d.bookings)) setBookings(d.bookings.map((b) => ({ ref: "", notes: "", att: [], status: "pendiente", link: "", ...b })));
+          if (Array.isArray(d.bookings)) setBookings(d.bookings.map((b) => ({ ref: "", notes: "", att: [], status: "pendiente", link: "", dateEnd: "", price: null, cur: "", paidBy: "", ...b })));
           if (Array.isArray(d.packing)) setPacking(d.packing);
           if (Array.isArray(d.expenses)) setExpenses(d.expenses.map((e) => ({ paidBy: "fa", link: "", ...e })));
           if (d.docsChk) setDocsChk(d.docsChk);
@@ -515,7 +517,7 @@ export default function App({ tripId, tripName, onBack }) {
   };
   const addBooking = () => {
     if (!nb.title.trim()) return;
-    setBookings((x) => [...x, { id: "b" + Date.now(), ...nb, status: "pendiente", ref: "", notes: "", link: "", att: [] }]);
+    setBookings((x) => [...x, { id: "b" + Date.now(), ...nb, status: "pendiente", ref: "", notes: "", link: "", att: [], dateEnd: "", price: null, cur: currency.base, paidBy: "" }]);
     setNb({ type: nb.type, title: "", date: nb.date, detail: "" });
     setShowAddB(false);
   };
@@ -649,16 +651,22 @@ export default function App({ tripId, tripName, onBack }) {
   const dates = allDays.filter((d) => d.date).map((d) => d.date).sort();
   const minDate = dates[0] || null, maxDate = dates[dates.length - 1] || null;
   const routeExpenses = itin.flatMap((c) => c.days.flatMap((d) => d.items.filter((a) => a.price && a.price > 0).map((a) => ({ id: a.id, cityId: c.id, dayId: d.id, name: a.x || c.city, city: c.city, date: d.date, cat: TYPE_TO_CAT[a.type] || "Actividades", amount: a.price, cur: a.cur || "EUR", paidBy: a.paidBy || "" }))));
+  /* Reservas con precio: cuentan como gasto en la categoría de su tipo. */
+  const bookingExpenses = bookings.filter((b) => b.price && b.price > 0).map((b) => ({
+    id: b.id, name: b.title || b.type, type: b.type, date: b.date, dateEnd: b.dateEnd,
+    cat: BOOKING_TO_CAT[b.type] || "Otros", amount: b.price, cur: b.cur || currency.base, paidBy: b.paidBy || "",
+  }));
   const manualTotal = expenses.reduce((s, e) => s + toBase(e.amount, e.cur), 0);
   const routeTotal = routeExpenses.reduce((s, e) => s + toBase(e.amount, e.cur), 0);
-  const totalSpent = manualTotal + routeTotal;
+  const bookingTotal = bookingExpenses.reduce((s, e) => s + toBase(e.amount, e.cur), 0);
+  const totalSpent = manualTotal + routeTotal + bookingTotal;
   const catTotals = {};
-  [...expenses.map((e) => ({ cat: e.cat, v: toBase(e.amount, e.cur) })), ...routeExpenses.map((e) => ({ cat: e.cat, v: toBase(e.amount, e.cur) }))].forEach(({ cat, v }) => { catTotals[cat] = (catTotals[cat] || 0) + v; });
+  [...expenses.map((e) => ({ cat: e.cat, v: toBase(e.amount, e.cur) })), ...routeExpenses.map((e) => ({ cat: e.cat, v: toBase(e.amount, e.cur) })), ...bookingExpenses.map((e) => ({ cat: e.cat, v: toBase(e.amount, e.cur) }))].forEach(({ cat, v }) => { catTotals[cat] = (catTotals[cat] || 0) + v; });
   const pieData = EXP_CATS.map((c) => ({ name: c, value: catTotals[c] || 0 })).filter((d) => d.value > 0);
-  /* balance entre Fa y Rubén: reparto 50/50 de todo lo que tenga pagador asignado */
+  /* balance entre las dos personas: reparto 50/50 de todo lo que tenga pagador asignado */
   const paidBy = { fa: 0, ruben: 0 };
   let unassignedPaid = 0;
-  [...expenses.map((e) => ({ who: e.paidBy, v: toBase(e.amount, e.cur) })), ...routeExpenses.map((e) => ({ who: e.paidBy, v: toBase(e.amount, e.cur) }))].forEach(({ who, v }) => {
+  [...expenses.map((e) => ({ who: e.paidBy, v: toBase(e.amount, e.cur) })), ...routeExpenses.map((e) => ({ who: e.paidBy, v: toBase(e.amount, e.cur) })), ...bookingExpenses.map((e) => ({ who: e.paidBy, v: toBase(e.amount, e.cur) }))].forEach(({ who, v }) => {
     if (who === "fa" || who === "ruben") paidBy[who] += v; else unassignedPaid += v;
   });
   const sharedTotal = paidBy.fa + paidBy.ruben;
