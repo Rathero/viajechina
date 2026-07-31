@@ -3,7 +3,7 @@ import {
   Plane, Train, Calendar, Wallet, Luggage, FileText, MapPin, Check, Plus,
   Trash2, ChevronDown, ChevronRight, ChevronLeft, Building2, Sparkles, AlertCircle,
   CreditCard, Wifi, Globe, Paperclip, Download, StickyNote, X,
-  Pencil, Bus, Car, Ship, ListChecks, ClipboardList, Image as ImageIcon, GripVertical, Link2, ExternalLink, BookOpen, Menu, ChevronsDownUp, ChevronsUpDown, SlidersHorizontal, ArrowRightLeft,
+  Pencil, Bus, Car, Ship, ListChecks, ClipboardList, Image as ImageIcon, GripVertical, Link2, ExternalLink, BookOpen, Menu, ChevronsDownUp, ChevronsUpDown, SlidersHorizontal, ArrowRightLeft, Utensils,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { store } from "./store";
@@ -162,6 +162,10 @@ const TYPE_TO_CAT = { comida: "Comida", traslado: "Transporte", logistica: "Otro
    partida: cada reserva guarda su propia categoría y se puede cambiar. */
 const BOOKING_TO_CAT = { Vuelo: "Vuelos", Tren: "Transporte", Hotel: "Alojamiento", Actividad: "Actividades" };
 const catOfBooking = (b) => (b && b.cat) || BOOKING_TO_CAT[b && b.type] || "Otros";
+/* Comidas incluidas: solo tiene sentido en alojamientos (media pensión, etc.). */
+const MEALS = [["desayuno", "Desayuno"], ["comida", "Comida"], ["cena", "Cena"]];
+const isStay = (b) => catOfBooking(b) === "Alojamiento";
+const mealsOf = (b) => MEALS.filter(([k]) => b && b.meals && b.meals[k]);
 /* Personas que comparten gastos: Fa (yo) y Rubén */
 /* Las dos personas que comparten gastos. Las claves ("fa"/"ruben") son internas y
    no se muestran nunca: los nombres visibles se guardan por viaje en `payerNames`. */
@@ -287,7 +291,7 @@ export default function App({ tripId, tripName, onBack }) {
           }
           /* `status` guarda si está reservado ("confirmado"/"pendiente"); se
              mantiene el valor antiguo para no migrar datos ya guardados. */
-          if (Array.isArray(d.bookings)) setBookings(d.bookings.map((b) => ({ ref: "", notes: "", att: [], status: "pendiente", link: "", dateEnd: "", price: null, cur: "", paidBy: "", paid: false, cat: "", ...b })));
+          if (Array.isArray(d.bookings)) setBookings(d.bookings.map((b) => ({ ref: "", notes: "", att: [], status: "pendiente", link: "", dateEnd: "", price: null, cur: "", paidBy: "", paid: false, cat: "", meals: {}, ...b })));
           if (Array.isArray(d.packing)) setPacking(d.packing);
           if (Array.isArray(d.expenses)) setExpenses(d.expenses.map((e) => ({ paidBy: "fa", link: "", ...e })));
           if (d.docsChk) setDocsChk(d.docsChk);
@@ -628,7 +632,7 @@ export default function App({ tripId, tripName, onBack }) {
   const addBooking = () => {
     if (!nb.title.trim()) return;
     setBookings((x) => [...x, {
-      id: "b" + Date.now(), status: "pendiente", paid: false, ref: "", notes: "", link: "", att: [],
+      id: "b" + Date.now(), status: "pendiente", paid: false, ref: "", notes: "", link: "", att: [], meals: {},
       price: null, cur: currency.base, paidBy: "",
       ...nb,
       dateEnd: nb.type === "Hotel" ? (nb.dateEnd || "") : "",
@@ -1036,6 +1040,7 @@ export default function App({ tripId, tripName, onBack }) {
         const nb = nightsOf(b);
         if (b.date) sub.push(nb ? `${fmtShort(b.date)} → ${fmtShort(b.dateEnd)} · ${nb} noche${nb === 1 ? "" : "s"}` : fmtShort(b.date));
         if (b.detail) sub.push(b.detail);
+        if (mealsOf(b).length) sub.push(`incluye ${mealsOf(b).map(([, l]) => l.toLowerCase()).join(", ")}`);
         if (sub.length) h += `<div class="sub">${esc(sub.join(" · "))}</div>`;
         if (b.price > 0) {
           const orig = fmtAmount(b.price, b.cur || currency.base);
@@ -1915,6 +1920,14 @@ export default function App({ tripId, tripName, onBack }) {
                           <span>{catOfBooking(b)}</span>
                         </div>
                         <div style={{ fontSize: 11.5, color: C.sub }}>{fmtBookingDates(b)}{fmtBookingDates(b) && b.detail ? " · " : ""}{b.detail}</div>
+                        {mealsOf(b).length > 0 && (
+                          <div className="flex items-center gap-1 flex-wrap mt-1">
+                            <Utensils size={11} color={C.jade} style={{ flexShrink: 0 }} />
+                            {mealsOf(b).map(([k, l]) => (
+                              <span key={k} style={{ fontSize: 10, fontWeight: 700, color: C.jade, background: C.jade + "1A", border: `1px solid ${C.jade}44`, borderRadius: 99, padding: "1px 7px" }}>{l}</span>
+                            ))}
+                          </div>
+                        )}
                         {(b.ref || (b.att && b.att.length) || b.notes || b.link || b.price > 0) && (
                           <div className="flex items-center gap-2.5 mt-1">
                             {b.price > 0 && (
@@ -2318,7 +2331,24 @@ export default function App({ tripId, tripName, onBack }) {
                     {EXP_CATS.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </Field>
-                <Field label="Detalle"><input value={bk.detail} onChange={(e) => patchBk({ detail: e.target.value })} placeholder={bk.type === "Hotel" ? "Tipo de habitación, desayuno…" : "Horario, nº de asiento, etc."} style={inp} /></Field>
+                {isStay(bk) && (
+                  <Field label="El alojamiento incluye">
+                    <div className="flex gap-2">
+                      {MEALS.map(([k, l]) => {
+                        const on = !!(bk.meals && bk.meals[k]);
+                        return (
+                          <button key={k} onClick={() => patchBk({ meals: { ...(bk.meals || {}), [k]: !on } })}
+                            className="flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5"
+                            style={{ background: C.card, border: `1px solid ${on ? C.jade + "66" : C.line}` }}>
+                            <CheckBox size={17} on={on} />
+                            <span style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>{l}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </Field>
+                )}
+                <Field label="Detalle"><input value={bk.detail} onChange={(e) => patchBk({ detail: e.target.value })} placeholder={isStay(bk) ? "Tipo de habitación, vistas…" : "Horario, nº de asiento, etc."} style={inp} /></Field>
                 <Field label="Precio" hint={twoCurrencies ? `Puedes ponerlo en ${currency.trip}: se convierte a ${currency.base} en Gastos.` : "Se suma automáticamente a tus gastos."}>
                   <div className="flex gap-2">
                     <input value={bk.price == null ? "" : bk.price} onChange={(e) => { const v = e.target.value.replace(",", "."); patchBk({ price: v === "" ? null : (parseFloat(v) || 0) }); }} placeholder="0,00" inputMode="decimal" style={{ ...inp, flex: 1, ...mono }} />
