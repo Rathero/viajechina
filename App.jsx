@@ -16,7 +16,7 @@ import { store } from "./store";
    Acento cálido Arena/Dorado #FFC857 -> gold */
 const C = {
   ink: "#0B2239", sub: "#5B6B78", paper: "#EDF1F4", card: "#FFFFFF",
-  red: "#FF5A3C", redDeep: "#E23B1E", jade: "#1CA6A6", gold: "#FFC857", line: "#DCE4EA",
+  red: "#FF5A3C", redDeep: "#E23B1E", jade: "#1CA6A6", gold: "#FFC857", goldTint: "#FFF4DC", goldInk: "#7A5410", line: "#DCE4EA",
 };
 const TYPE = {
   historia: { c: "#C9962E", l: "Historia" },
@@ -748,7 +748,8 @@ export default function App({ tripId, tripName, onBack }) {
           const on = value === v;
           return (
             <button key={v || "all"} onClick={() => onChange(v)} className="flex-1 rounded-lg py-2" style={{
-              fontSize: 12.5, fontWeight: 700, border: `1.5px solid ${on ? C.red : C.line}`,
+              fontSize: options.length > 3 ? 11.5 : 12.5, padding: options.length > 3 ? "8px 2px" : undefined,
+              fontWeight: 700, border: `1.5px solid ${on ? C.red : C.line}`,
               background: on ? C.red + "14" : C.card, color: on ? C.redDeep : C.sub,
               whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
             }}>{l}</button>
@@ -802,7 +803,7 @@ export default function App({ tripId, tripName, onBack }) {
      la actividad; en reservas, la casilla «Pagado». */
   const fOn = filters.person || filters.cat || filters.paid;
   const fMatch = (it) =>
-    (!filters.person || it.paidBy === filters.person) &&
+    (!filters.person || (filters.person === "none" ? !it.paidBy : it.paidBy === filters.person)) &&
     (!filters.cat || it.cat === filters.cat) &&
     (!filters.paid || (filters.paid === "si" ? it.paid : !it.paid));
   const expensesShown = expenses.filter((e) => fMatch({ cat: e.cat, paidBy: e.paidBy, paid: true }));
@@ -1446,7 +1447,7 @@ export default function App({ tripId, tripName, onBack }) {
         {showFilters && (
           <div className="mt-3 flex flex-col gap-3">
             {renderSeg("Cálculo", filters.view, [["conjunto", "Conjunto"], ["individual", `Individual`]], (v) => setFilters((f) => ({ ...f, view: v })))}
-            {renderSeg("Persona", filters.person, [["", "Todos"], ["fa", payerNames.fa], ["ruben", payerNames.ruben]], (v) => setFilters((f) => ({ ...f, person: v })))}
+            {renderSeg("Persona", filters.person, [["", "Todos"], ["fa", payerNames.fa], ["ruben", payerNames.ruben], ["none", "Sin asignar"]], (v) => setFilters((f) => ({ ...f, person: v })))}
             {renderSeg("Estado", filters.paid, [["", "Todo"], ["si", "Pagado"], ["no", "Sin pagar"]], (v) => setFilters((f) => ({ ...f, paid: v })))}
             <div>
               <div style={{ fontSize: 11, color: C.sub, marginBottom: 5, fontWeight: 600 }}>Categoría</div>
@@ -1522,7 +1523,7 @@ export default function App({ tripId, tripName, onBack }) {
             ))}
           </div>
         )}
-        <div className="flex gap-3 mb-3">
+        <div className="flex gap-3 mb-2">
           {PAYERS.map((p) => (
             <div key={p} className="flex-1 rounded-xl px-3 py-2.5" style={{ background: PAYER_COLOR[p] + "12", border: `1px solid ${PAYER_COLOR[p]}33` }}>
               <div style={{ fontSize: 11, color: C.sub, fontWeight: 600 }}>{payerNames[p]} ha pagado</div>
@@ -1530,6 +1531,24 @@ export default function App({ tripId, tripName, onBack }) {
             </div>
           ))}
         </div>
+
+        {/* Todo lo que tiene precio cuenta aquí: reservas, actividades de la ruta
+            y gastos manuales. Lo que aún no tiene pagador se muestra aparte. */}
+        <div className="flex items-center justify-between rounded-xl px-3 py-2 mb-3" style={{ background: C.paper, border: `1px solid ${C.line}` }}>
+          <span style={{ fontSize: 12, color: C.sub }}>Total contabilizado</span>
+          <span style={{ ...mono, fontSize: 13.5, fontWeight: 800, color: C.ink }}>{money(totalSpent)}</span>
+        </div>
+
+        {unassignedPaid > 0.005 && (
+          <button onClick={() => { setShowFilters(true); setFilters((f) => ({ ...f, person: "none" })); }}
+            className="w-full flex items-center justify-between rounded-xl px-3 py-2.5 mb-3" style={{ background: C.goldTint, border: `1px solid ${C.gold}` }}>
+            <span className="flex items-center gap-2 min-w-0" style={{ fontSize: 12, color: C.goldInk, textAlign: "left" }}>
+              <AlertCircle size={14} style={{ flexShrink: 0 }} />
+              <span>{money(unassignedPaid)} sin asignar a nadie. Toca para verlos.</span>
+            </span>
+            <ChevronRight size={15} color={C.goldInk} style={{ flexShrink: 0 }} />
+          </button>
+        )}
         <div className="rounded-xl px-4 py-3 text-center" style={{ background: C.ink, color: "#EAF2F7" }}>
           {sharedTotal <= 0 ? (
             <span style={{ fontSize: 13, color: "#9DB2C0" }}>Aún no hay gastos con pagador asignado.</span>
@@ -1542,12 +1561,11 @@ export default function App({ tripId, tripName, onBack }) {
             </div>
           )}
         </div>
-        {unassignedPaid > 0.005 && (
-          <div style={{ fontSize: 11, color: C.sub, marginTop: 8, textAlign: "center" }}>{money(unassignedPaid)} sin asignar a una persona (no cuentan en el balance).</div>
-        )}
-        {(fOn || share > 1) && (
-          <div style={{ fontSize: 11, color: C.sub, marginTop: 8, textAlign: "center" }}>El balance siempre tiene en cuenta todos los gastos, sin filtros.</div>
-        )}
+        <div style={{ fontSize: 11, color: C.sub, marginTop: 8, textAlign: "center", lineHeight: 1.45 }}>
+          Incluye reservas, actividades de la ruta y gastos manuales.
+          {unassignedPaid > 0.005 ? " Lo que no tiene pagador se considera compartido a medias." : ""}
+          {(fOn || share > 1) ? " El balance no se ve afectado por los filtros." : ""}
+        </div>
       </Card>
 
       {showAddExpense && (
