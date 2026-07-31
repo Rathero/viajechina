@@ -16,7 +16,7 @@ import { store } from "./store";
    Acento cálido Arena/Dorado #FFC857 -> gold */
 const C = {
   ink: "#0B2239", sub: "#5B6B78", paper: "#EDF1F4", card: "#FFFFFF",
-  red: "#FF5A3C", redDeep: "#E23B1E", jade: "#1CA6A6", gold: "#FFC857", goldTint: "#FFF4DC", goldInk: "#7A5410", line: "#DCE4EA",
+  red: "#FF5A3C", redDeep: "#E23B1E", jade: "#1CA6A6", gold: "#FFC857", line: "#DCE4EA",
 };
 const TYPE = {
   historia: { c: "#C9962E", l: "Historia" },
@@ -1539,16 +1539,6 @@ export default function App({ tripId, tripName, onBack }) {
           <span style={{ ...mono, fontSize: 13.5, fontWeight: 800, color: C.ink }}>{money(totalSpent)}</span>
         </div>
 
-        {unassignedPaid > 0.005 && (
-          <button onClick={() => { setShowFilters(true); setFilters((f) => ({ ...f, person: "none" })); }}
-            className="w-full flex items-center justify-between rounded-xl px-3 py-2.5 mb-3" style={{ background: C.goldTint, border: `1px solid ${C.gold}` }}>
-            <span className="flex items-center gap-2 min-w-0" style={{ fontSize: 12, color: C.goldInk, textAlign: "left" }}>
-              <AlertCircle size={14} style={{ flexShrink: 0 }} />
-              <span>{money(unassignedPaid)} sin asignar a nadie. Toca para verlos.</span>
-            </span>
-            <ChevronRight size={15} color={C.goldInk} style={{ flexShrink: 0 }} />
-          </button>
-        )}
         <div className="rounded-xl px-4 py-3 text-center" style={{ background: C.ink, color: "#EAF2F7" }}>
           {sharedTotal <= 0 ? (
             <span style={{ fontSize: 13, color: "#9DB2C0" }}>Aún no hay gastos con pagador asignado.</span>
