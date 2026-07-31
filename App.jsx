@@ -427,22 +427,66 @@ export default function App({ tripId, tripName, onBack }) {
     setEditing(null);
   };
 
-  /* ---- días ---- */
-  const addDay = (cityId) => {
-    const c = itin.find((x) => x.id === cityId);
-    const last = c && c.days.length ? c.days[c.days.length - 1].date : "";
-    const date = last ? addDaysISO(last, 1) : "";
-    const id = cityId + "-d" + Math.random().toString(36).slice(2, 6);
-    setItin((prev) => prev.map((x) => x.id !== cityId ? x : { ...x, days: [...x.days, { id, date, title: "", items: [], link: "" }] }));
-    setOpenDay((o) => ({ ...o, [id]: true }));
-    setEditing({ kind: "day", cityId, dayId: id });
+  /* ---- días ----
+     Los días de una parada se manejan por rango (primer y último día) desde el
+     lápiz de la parada. Regla de oro: una actividad nunca se borra sola. Si su
+     día desaparece, se lleva al día más cercano y se marca (`orphan`) para que
+     se vea en rojo hasta que se revise. */
+  const sortDays = (days) => [...days].sort((a, b) => {
+    if (!a.date) return 1;
+    if (!b.date) return -1;
+    return a.date.localeCompare(b.date);
+  });
+  /* Día de `days` más próximo en fecha a `date` (el primero si no hay fechas). */
+  const nearestDay = (days, date) => {
+    const dated = days.filter((d) => d.date);
+    if (!date || !dated.length) return days[0];
+    const dist = (d) => Math.abs((new Date(d.date) - new Date(date)) / 86400000);
+    return dated.reduce((best, d) => (dist(d) < dist(best) ? d : best), dated[0]);
   };
-  const patchDayById = (cityId, dayId, patch) => setItin((prev) => prev.map((c) => c.id !== cityId ? c : { ...c, days: c.days.map((d) => d.id !== dayId ? d : { ...d, ...patch }) }));
+
+  /* Reconstruye los días de una parada para que cubran [start, end]. Conserva
+     los que ya existen (con su título, enlace y actividades) y reubica las
+     actividades de los que se caen. */
+  const setCityRange = (cityId, start, end) => {
+    const wanted = rangeISO(start, end);
+    if (!wanted.length) return;
+    setItin((prev) => prev.map((c) => {
+      if (c.id !== cityId) return c;
+      const byDate = new Map(c.days.filter((d) => d.date).map((d) => [d.date, d]));
+      /* copias: nunca mutamos los objetos que ya están en el estado */
+      const kept = wanted.map((date, i) => {
+        const ex = byDate.get(date);
+        return ex ? { ...ex, items: [...ex.items] }
+          : { id: `${cityId}-d${Date.now().toString(36)}${i}`, date, title: "", items: [], link: "" };
+      });
+      const keptIds = new Set(kept.map((d) => d.id));
+      c.days.filter((d) => !keptIds.has(d.id)).forEach((gone) => {
+        if (!gone.items.length) return;
+        const target = nearestDay(kept, gone.date);
+        target.items = [...target.items, ...gone.items.map((a) => ({ ...a, orphan: true }))];
+      });
+      return { ...c, days: sortDays(kept) };
+    }));
+  };
+
+  const patchDayById = (cityId, dayId, patch) => setItin((prev) => prev.map((c) => c.id !== cityId ? c
+    : { ...c, days: sortDays(c.days.map((d) => d.id !== dayId ? d : { ...d, ...patch })) }));
+
+  /* Borrar un día no borra sus actividades: se pasan al día más cercano. */
   const deleteDay = (cityId, dayId) => {
-    const c = itin.find((x) => x.id === cityId);
-    const d = c && c.days.find((y) => y.id === dayId);
-    if (d) d.items.forEach((a) => (a.att || []).forEach(purgeAtt));
-    setItin((prev) => prev.map((x) => x.id !== cityId ? x : { ...x, days: x.days.filter((y) => y.id !== dayId) }));
+    setItin((prev) => prev.map((c) => {
+      if (c.id !== cityId) return c;
+      const gone = c.days.find((d) => d.id === dayId);
+      if (!gone) return c;
+      const rest = c.days.filter((d) => d.id !== dayId).map((d) => ({ ...d, items: [...d.items] }));
+      if (!rest.length) return c; // una parada no puede quedarse sin días
+      if (gone.items.length) {
+        const target = nearestDay(rest, gone.date);
+        target.items = [...target.items, ...gone.items.map((a) => ({ ...a, orphan: true }))];
+      }
+      return { ...c, days: sortDays(rest) };
+    }));
     setEditing(null);
   };
 
@@ -1298,7 +1342,11 @@ export default function App({ tripId, tripName, onBack }) {
                             return (
                               <React.Fragment key={a.id}>
                                 {showLine && <div style={{ height: 2, borderRadius: 2, background: s.color }} />}
-                                <div data-act-id={a.id} className="flex items-start gap-2.5" style={{ opacity: drag && drag.item.id === a.id ? 0.4 : 1 }}>
+                                <div data-act-id={a.id} className="flex items-start gap-2.5" style={{
+                                  opacity: drag && drag.item.id === a.id ? 0.4 : 1,
+                                  /* reubicada al desaparecer su día: se marca hasta que se revise */
+                                  ...(a.orphan ? { border: `1.5px solid ${C.red}`, borderRadius: 10, padding: "8px 10px", background: C.red + "0A" } : null),
+                                }}>
                                   <div style={{ marginTop: 1 }}>
                                     <CheckBox on={a.booked} onClick={() => patchActById(s.id, d.id, a.id, { booked: !a.booked })} />
                                   </div>
@@ -1359,8 +1407,8 @@ export default function App({ tripId, tripName, onBack }) {
                       </div>
                     );
                   })}
-                  <button onClick={() => addDay(s.id)} className="w-full flex items-center justify-center gap-1.5 rounded-xl py-2.5 mb-1" style={{ border: `1.5px dashed ${C.line}`, color: C.sub, fontSize: 13, fontWeight: 600 }}>
-                    <Plus size={15} /> Añadir día
+                  <button onClick={() => setEditing({ kind: "city", cityId: s.id })} className="w-full flex items-center justify-center gap-1.5 rounded-xl py-2.5 mb-1" style={{ border: `1.5px dashed ${C.line}`, color: C.sub, fontSize: 12.5, fontWeight: 600 }}>
+                    <Pencil size={14} /> Cambiar los días de {s.city}
                   </button>
                 </>
               )}
@@ -2257,6 +2305,28 @@ export default function App({ tripId, tripName, onBack }) {
             {k === "city" && (
               <>
                 <Field label="Nombre de la parada"><input value={city.city} onChange={(e) => patchCityById(editing.cityId, { city: e.target.value })} style={inp} /></Field>
+
+                {(() => {
+                  const ds = city.days.filter((d) => d.date).map((d) => d.date).sort();
+                  const ini = ds[0] || "", fin = ds[ds.length - 1] || "";
+                  const n = rangeISO(ini, fin).length;
+                  return (
+                    <Field label="Días en esta parada" hint={n ? `${n} día${n === 1 ? "" : "s"}. Los días se ordenan solos; ninguna actividad se pierde al cambiar el rango.` : "Elige el primer y el último día."}>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <input type="date" value={ini} onChange={(e) => {
+                          const v = e.target.value;
+                          if (v) setCityRange(editing.cityId, v, fin && fin >= v ? fin : v);
+                        }} style={{ ...inp, ...mono, width: 150 }} />
+                        <span style={{ color: C.sub, fontWeight: 700 }}>→</span>
+                        <input type="date" value={fin} min={ini || undefined} onChange={(e) => {
+                          const v = e.target.value;
+                          if (v) setCityRange(editing.cityId, ini && ini <= v ? ini : v, v);
+                        }} style={{ ...inp, ...mono, width: 150 }} />
+                      </div>
+                    </Field>
+                  );
+                })()}
+
                 <Field label="Color">
                   <div className="flex flex-wrap gap-2">
                     {PALETTE.map((col) => <button key={col} onClick={() => patchCityById(editing.cityId, { color: col })} style={{ width: 30, height: 30, borderRadius: 8, background: col, border: city.color === col ? `2px solid ${C.ink}` : "2px solid transparent" }} />)}
@@ -2271,7 +2341,6 @@ export default function App({ tripId, tripName, onBack }) {
                   </div>
                 </Field>
                 {renderLinkField(city.link, (v) => patchCityById(editing.cityId, { link: v }))}
-                <div style={{ fontSize: 12, color: C.sub, marginBottom: 12 }}>Los días y actividades de esta parada se gestionan en la pantalla de Ruta.</div>
                 <button onClick={() => setConfirmDel({ name: city.city || "esta parada", where: "y todos sus días de la ruta", onConfirm: () => deleteCity(editing.cityId) })} className="w-full flex items-center justify-center gap-2 rounded-xl py-3" style={{ color: C.red, border: `1px solid ${C.line}`, fontSize: 13, fontWeight: 600 }}><Trash2 size={15} /> Eliminar parada y sus días</button>
               </>
             )}
