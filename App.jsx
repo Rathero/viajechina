@@ -1600,7 +1600,11 @@ export default function App({ tripId, tripName, onBack }) {
       )}
 
       {expensesShown.length > 0 && (
-        <div className="flex flex-col gap-2 mb-4">
+        <div className="mb-4">
+          <div className="px-1 mb-2 flex items-center gap-1.5" style={{ color: C.sub, fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
+            <Wallet size={13} /> Gastos manuales
+          </div>
+          <div className="flex flex-col gap-2">
           {expensesShown.map((e) => (
             <div key={e.id} className="flex items-center gap-3 rounded-xl px-4 py-3" style={{ background: C.card, border: `1px solid ${C.line}` }}>
               <button onClick={() => setEditing({ kind: "expense", id: e.id })} className="flex items-center gap-3 flex-1 min-w-0 text-left">
@@ -1618,6 +1622,7 @@ export default function App({ tripId, tripName, onBack }) {
               <button onClick={() => setConfirmDel({ name: e.desc || e.cat, where: "de los gastos", onConfirm: () => setExpenses((x) => x.filter((y) => y.id !== e.id)) })}><Trash2 size={16} color={C.sub} /></button>
             </div>
           ))}
+          </div>
         </div>
       )}
 
