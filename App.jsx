@@ -1158,6 +1158,8 @@ export default function App({ tripId, tripName, onBack }) {
         ))}
       </div>
 
+      {renderTripSettings()}
+
       <Card style={{ padding: 16, marginTop: 16 }}>
         <div className="flex items-start gap-3">
           <div className="flex items-center justify-center rounded-lg" style={{ background: C.paper, width: 38, height: 38, flexShrink: 0 }}>
@@ -1659,8 +1661,14 @@ export default function App({ tripId, tripName, onBack }) {
         </Card>
       )}
 
-      <Card style={{ padding: 14 }}>
-        <div style={{ fontWeight: 700, color: C.ink, fontSize: 14, marginBottom: 10 }}>Ajustes del viaje</div>
+    </div>
+  );
+
+  /* Ajustes del viaje (monedas, cambio y presupuesto). Viven en Resumen para
+     no llenar la pantalla de Gastos, que es la que más se consulta. */
+  const renderTripSettings = () => (
+      <Card style={{ padding: 16, marginTop: 16 }}>
+        <div style={{ fontWeight: 700, color: C.ink, fontSize: 14, marginBottom: 10 }}>Monedas y presupuesto</div>
         <div className="flex items-center justify-between gap-3 mb-2">
           <span style={{ fontSize: 13, color: C.sub }}>Mi moneda</span>
           <select value={currency.base} onChange={(e) => setCurrency((c) => ({ ...c, base: e.target.value }))} style={{ ...inp, width: "auto" }}>
@@ -1695,7 +1703,6 @@ export default function App({ tripId, tripName, onBack }) {
           <input value={budget || ""} onChange={(e) => setBudget(parseFloat(e.target.value) || 0)} placeholder="0" inputMode="decimal" style={{ ...inp, width: 110, textAlign: "right", ...mono, padding: "6px 12px" }} />
         </div>
       </Card>
-    </div>
   );
 
   /* ============ reservas ============ */
