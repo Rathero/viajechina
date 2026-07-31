@@ -277,7 +277,7 @@ export default function App({ tripId, tripName, onBack }) {
           lastStamp.current = d.savedAt || null;
           if (typeof d.tripTitle === "string") setTripTitle(d.tripTitle);
           if (Array.isArray(d.itin)) {
-            const it = d.itin.map((c) => ({ into: null, color: PALETTE[0], days: [], link: "", ...c, days: (c.days || []).map((dd) => ({ title: "", items: [], link: "", ...dd, items: (dd.items || []).map((a) => ({ booked: false, notes: "", price: null, cur: "EUR", att: [], tEnd: "", paidBy: "", link: "", ...a })) })) }));
+            const it = d.itin.map((c) => ({ into: null, color: PALETTE[0], days: [], link: "", ...c, days: (c.days || []).map((dd) => ({ title: "", items: [], link: "", ...dd, items: (dd.items || []).map((a) => ({ booked: false, notes: "", price: null, cur: "EUR", att: [], tEnd: "", paidBy: "", link: "", orphan: false, ...a })) })) }));
             setItin(it);
             setOpenCity(Object.fromEntries(it.map((c) => [c.id, true])));
             const today = todayISO();
@@ -491,6 +491,30 @@ export default function App({ tripId, tripName, onBack }) {
   };
 
   /* ---- actividades ---- */
+  /* Mueve una actividad a otro día (de cualquier parada) y le quita la marca
+     de reubicada. Mantiene el detalle abierto sobre la misma actividad. */
+  const moveActToDay = (fromCityId, fromDayId, actId, toCityId, toDayId) => {
+    if (fromCityId === toCityId && fromDayId === toDayId) return;
+    let moved = null;
+    setItin((prev) => {
+      const without = prev.map((c) => c.id !== fromCityId ? c : {
+        ...c,
+        days: c.days.map((d) => d.id !== fromDayId ? d : {
+          ...d,
+          items: d.items.filter((a) => { if (a.id === actId) { moved = a; return false; } return true; }),
+        }),
+      });
+      if (!moved) return prev;
+      const item = { ...moved, orphan: false };
+      return without.map((c) => c.id !== toCityId ? c : {
+        ...c,
+        days: c.days.map((d) => d.id !== toDayId ? d : { ...d, items: [...d.items, item] }),
+      });
+    });
+    setOpenDay((o) => ({ ...o, [toDayId]: true }));
+    setEditing({ kind: "act", cityId: toCityId, dayId: toDayId, actId });
+  };
+
   const patchActById = (cityId, dayId, actId, patch) =>
     setItin((prev) => prev.map((c) => c.id !== cityId ? c : { ...c, days: c.days.map((d) => d.id !== dayId ? d : { ...d, items: d.items.map((a) => a.id !== actId ? a : { ...a, ...patch }) }) }));
   const patchAct = (patch) => editing && patchActById(editing.cityId, editing.dayId, editing.actId, patch);
@@ -501,7 +525,7 @@ export default function App({ tripId, tripName, onBack }) {
   const addActivity = (cityId, dayId) => {
     if (!na.x.trim()) return;
     const id = dayId + "-a" + Math.random().toString(36).slice(2, 7);
-    setItin((prev) => prev.map((c) => c.id !== cityId ? c : { ...c, days: c.days.map((d) => d.id !== dayId ? d : { ...d, items: [...d.items, { id, t: na.t || "12:00", tEnd: "", x: na.x.trim(), type: na.type, booked: false, notes: "", price: null, cur: currency.base, paidBy: "", link: "", att: [] }] }) }));
+    setItin((prev) => prev.map((c) => c.id !== cityId ? c : { ...c, days: c.days.map((d) => d.id !== dayId ? d : { ...d, items: [...d.items, { id, t: na.t || "12:00", tEnd: "", x: na.x.trim(), type: na.type, booked: false, notes: "", price: null, cur: currency.base, paidBy: "", link: "", orphan: false, att: [] }] }) }));
     setNa({ t: "12:00", x: "", type: "cultura" });
     setAddActFor(null);
   };
@@ -2212,6 +2236,29 @@ export default function App({ tripId, tripName, onBack }) {
           <div className="px-5 py-4">
             {k === "act" && (
               <>
+                {act.orphan && (
+                  <div className="rounded-xl px-4 py-3 mb-3" style={{ background: C.red + "12", border: `1px solid ${C.red}66` }}>
+                    <div className="flex items-start gap-2" style={{ fontSize: 12.5, color: C.redDeep, lineHeight: 1.45 }}>
+                      <AlertCircle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+                      <span>Su día original ya no existe y la hemos traído a este. Elige abajo el día correcto o déjala aquí.</span>
+                    </div>
+                    <button onClick={() => patchAct({ orphan: false })} className="w-full rounded-lg py-2 mt-2.5" style={{ background: C.card, border: `1px solid ${C.line}`, color: C.sub, fontSize: 12.5, fontWeight: 600 }}>
+                      Dejarla en este día
+                    </button>
+                  </div>
+                )}
+                <Field label="Día" hint="Puedes moverla a cualquier día del viaje.">
+                  <select value={`${editing.cityId}|${editing.dayId}`} onChange={(e) => {
+                    const [toCityId, toDayId] = e.target.value.split("|");
+                    moveActToDay(editing.cityId, editing.dayId, editing.actId, toCityId, toDayId);
+                  }} style={inp}>
+                    {itin.flatMap((c) => c.days.map((d) => (
+                      <option key={d.id} value={`${c.id}|${d.id}`}>
+                        {c.city} · {d.date ? `${dparts(d.date).dow} ${dparts(d.date).dd} ${dparts(d.date).mmm}` : "sin fecha"}{d.title ? ` · ${d.title}` : ""}
+                      </option>
+                    )))}
+                  </select>
+                </Field>
                 <Field label="Hora" hint="Inicio y fin aproximado de la actividad.">
                   <div className="flex items-center gap-2 flex-wrap">
                     <input type="time" value={act.t || ""} onChange={(e) => patchAct({ t: e.target.value })} disabled={!act.t} style={{ ...inp, ...mono, width: 118, opacity: act.t ? 1 : 0.45 }} />
