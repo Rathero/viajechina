@@ -158,8 +158,10 @@ const EXP_CATS = ["Vuelos", "Alojamiento", "Transporte", "Comida", "Actividades"
 const EXP_COLORS = { Vuelos: "#3D6FA6", Alojamiento: "#FF5A3C", Transporte: "#C9962E", Comida: "#E0883B", Actividades: "#1CA6A6", Compras: "#7E5BA6", Otros: "#7E8C95" };
 const PACK_CATS = ["Documentos", "Ropa", "Electrónica", "Aseo y salud", "Otros"];
 const TYPE_TO_CAT = { comida: "Comida", traslado: "Transporte", logistica: "Otros", historia: "Actividades", cultura: "Actividades", naturaleza: "Actividades", tech: "Actividades" };
-/* Cada tipo de reserva cuenta en su categoría de gasto. */
+/* Categoría de gasto propuesta según el tipo de reserva. Es solo el valor de
+   partida: cada reserva guarda su propia categoría y se puede cambiar. */
 const BOOKING_TO_CAT = { Vuelo: "Vuelos", Tren: "Transporte", Hotel: "Alojamiento", Actividad: "Actividades" };
+const catOfBooking = (b) => (b && b.cat) || BOOKING_TO_CAT[b && b.type] || "Otros";
 /* Personas que comparten gastos: Fa (yo) y Rubén */
 /* Las dos personas que comparten gastos. Las claves ("fa"/"ruben") son internas y
    no se muestran nunca: los nombres visibles se guardan por viaje en `payerNames`. */
@@ -242,7 +244,8 @@ export default function App({ tripId, tripName, onBack }) {
   const [nc, setNc] = useState({ name: "", start: "", end: "", mode: "" });
   const [showAddCity, setShowAddCity] = useState(false);
   const [ne, setNe] = useState({ cat: "Comida", desc: "", amount: "", cur: "EUR", date: todayISO(), paidBy: "fa", link: "" });
-  const [nb, setNb] = useState({ type: "Hotel", title: "", date: todayISO(), dateEnd: addDaysISO(todayISO(), 1), detail: "" });
+  const [nb, setNb] = useState({ type: "Hotel", cat: BOOKING_TO_CAT.Hotel, title: "", date: todayISO(), dateEnd: addDaysISO(todayISO(), 1), detail: "" });
+  const [bookingCat, setBookingCat] = useState(""); // filtro por categoría en Reservas
   const [showAddB, setShowAddB] = useState(false);
   const [np, setNp] = useState({ cat: "Otros", item: "" });
   const [na, setNa] = useState({ t: "12:00", x: "", type: "cultura" });
@@ -284,7 +287,7 @@ export default function App({ tripId, tripName, onBack }) {
           }
           /* `status` guarda si está reservado ("confirmado"/"pendiente"); se
              mantiene el valor antiguo para no migrar datos ya guardados. */
-          if (Array.isArray(d.bookings)) setBookings(d.bookings.map((b) => ({ ref: "", notes: "", att: [], status: "pendiente", link: "", dateEnd: "", price: null, cur: "", paidBy: "", paid: false, ...b })));
+          if (Array.isArray(d.bookings)) setBookings(d.bookings.map((b) => ({ ref: "", notes: "", att: [], status: "pendiente", link: "", dateEnd: "", price: null, cur: "", paidBy: "", paid: false, cat: "", ...b })));
           if (Array.isArray(d.packing)) setPacking(d.packing);
           if (Array.isArray(d.expenses)) setExpenses(d.expenses.map((e) => ({ paidBy: "fa", link: "", ...e })));
           if (d.docsChk) setDocsChk(d.docsChk);
@@ -552,7 +555,7 @@ export default function App({ tripId, tripName, onBack }) {
   /* Cierra el formulario y descarta lo escrito. */
   const cancelAddBooking = () => {
     setShowAddB(false);
-    setNb({ type: nb.type, title: "", date: tripDay(), dateEnd: nb.type === "Hotel" ? clampTrip(addDaysISO(tripDay(), 1)) : "", detail: "" });
+    setNb({ type: nb.type, cat: nb.cat, title: "", date: tripDay(), dateEnd: nb.type === "Hotel" ? clampTrip(addDaysISO(tripDay(), 1)) : "", detail: "" });
   };
   const addBooking = () => {
     if (!nb.title.trim()) return;
@@ -561,8 +564,9 @@ export default function App({ tripId, tripName, onBack }) {
       price: null, cur: currency.base, paidBy: "",
       ...nb,
       dateEnd: nb.type === "Hotel" ? (nb.dateEnd || "") : "",
+      cat: nb.cat || BOOKING_TO_CAT[nb.type] || "Otros",
     }]);
-    setNb({ type: nb.type, title: "", date: nb.date, dateEnd: nb.type === "Hotel" ? addDaysISO(nb.date || todayISO(), 1) : "", detail: "" });
+    setNb({ type: nb.type, cat: nb.cat, title: "", date: nb.date, dateEnd: nb.type === "Hotel" ? addDaysISO(nb.date || todayISO(), 1) : "", detail: "" });
     setShowAddB(false);
   };
 
@@ -793,7 +797,7 @@ export default function App({ tripId, tripName, onBack }) {
   /* Reservas con precio: cuentan como gasto en la categoría de su tipo. */
   const bookingExpenses = bookings.filter((b) => b.price && b.price > 0).map((b) => ({
     id: b.id, name: b.title || b.type, type: b.type, date: b.date, dateEnd: b.dateEnd,
-    cat: BOOKING_TO_CAT[b.type] || "Otros", amount: b.price, cur: b.cur || currency.base, paidBy: b.paidBy || "",
+    cat: catOfBooking(b), amount: b.price, cur: b.cur || currency.base, paidBy: b.paidBy || "",
     booked: b.status === "confirmado", paid: !!b.paid,
   }));
 
@@ -1730,7 +1734,8 @@ export default function App({ tripId, tripName, onBack }) {
     return `${ini} → ${dparts(b.dateEnd).dd} ${dparts(b.dateEnd).mmm} · ${n} noche${n === 1 ? "" : "s"}`;
   };
   const renderReservas = () => {
-    const groups = ["Vuelo", "Tren", "Hotel", "Actividad"].map((t) => [t, bookings.filter((b) => b.type === t)]).filter(([, a]) => a.length);
+    const shown = bookingCat ? bookings.filter((b) => catOfBooking(b) === bookingCat) : bookings;
+    const groups = ["Vuelo", "Tren", "Hotel", "Actividad"].map((t) => [t, shown.filter((b) => b.type === t)]).filter(([, a]) => a.length);
     return (
       <div className="px-5 pb-6">
         <div className="pt-1 pb-3 flex items-end justify-between">
@@ -1743,20 +1748,45 @@ export default function App({ tripId, tripName, onBack }) {
           </button>
         </div>
 
+        {bookings.length > 0 && (
+          <div className="flex items-center gap-2 mb-3">
+            <SlidersHorizontal size={15} color={bookingCat ? C.red : C.sub} style={{ flexShrink: 0 }} />
+            <select value={bookingCat} onChange={(e) => setBookingCat(e.target.value)} style={{ ...inp, flex: 1, borderColor: bookingCat ? C.red : C.line, color: bookingCat ? C.redDeep : C.ink, fontWeight: bookingCat ? 700 : 400 }}>
+              <option value="">Todas las categorías</option>
+              {EXP_CATS.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            {bookingCat && (
+              <button onClick={() => setBookingCat("")} className="rounded-lg px-3 py-2" style={{ background: C.card, border: `1px solid ${C.line}`, color: C.sub, fontSize: 12.5, fontWeight: 600, flexShrink: 0 }}>Quitar</button>
+            )}
+          </div>
+        )}
+
         {showAddB && (
           <Card style={{ padding: 14, marginBottom: 14 }}>
             <div className="flex gap-2 mb-2">
-              <select value={nb.type} onChange={(e) => {
-                const type = e.target.value;
-                /* al pasar a Hotel se propone la salida al día siguiente */
-                setNb((n) => ({ ...n, type, dateEnd: type === "Hotel" ? (n.dateEnd || addDaysISO(n.date || todayISO(), 1)) : "" }));
-              }} style={{ ...inp, flex: 1, padding: "8px 8px" }}>
-                {["Vuelo", "Tren", "Hotel", "Actividad"].map((t) => <option key={t}>{t}</option>)}
-              </select>
-              {nb.type !== "Hotel" && (
-                <input type="date" {...tripDates} value={nb.date} onChange={(e) => setNb({ ...nb, date: clampTrip(e.target.value) })} style={{ ...inp, width: "auto", ...mono, padding: "8px 8px" }} />
-              )}
+              <div className="flex-1">
+                <div style={{ fontSize: 11, color: C.sub, marginBottom: 4 }}>Tipo</div>
+                <select value={nb.type} onChange={(e) => {
+                  const type = e.target.value;
+                  /* al cambiar de tipo se propone su categoría y, si es hotel, la salida */
+                  setNb((n) => ({ ...n, type, cat: BOOKING_TO_CAT[type] || "Otros", dateEnd: type === "Hotel" ? (n.dateEnd || addDaysISO(n.date || todayISO(), 1)) : "" }));
+                }} style={{ ...inp, padding: "8px 8px" }}>
+                  {["Vuelo", "Tren", "Hotel", "Actividad"].map((t) => <option key={t}>{t}</option>)}
+                </select>
+              </div>
+              <div className="flex-1">
+                <div style={{ fontSize: 11, color: C.sub, marginBottom: 4 }}>Categoría</div>
+                <select value={nb.cat || BOOKING_TO_CAT[nb.type] || "Otros"} onChange={(e) => setNb({ ...nb, cat: e.target.value })} style={{ ...inp, padding: "8px 8px" }}>
+                  {EXP_CATS.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
             </div>
+            {nb.type !== "Hotel" && (
+              <div className="mb-2">
+                <div style={{ fontSize: 11, color: C.sub, marginBottom: 4 }}>Fecha</div>
+                <input type="date" {...tripDates} value={nb.date} onChange={(e) => setNb({ ...nb, date: clampTrip(e.target.value) })} style={{ ...inp, ...mono }} />
+              </div>
+            )}
             {nb.type === "Hotel" && (
               <div className="mb-2">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -1786,7 +1816,12 @@ export default function App({ tripId, tripName, onBack }) {
           </Card>
         )}
 
-        {bookings.length === 0 ? (
+        {bookings.length > 0 && shown.length === 0 ? (
+          <Card style={{ padding: 18, textAlign: "center" }}>
+            <div style={{ fontSize: 13.5, color: C.ink, fontWeight: 600 }}>Ninguna reserva en «{bookingCat}»</div>
+            <button onClick={() => setBookingCat("")} style={{ fontSize: 12.5, color: C.red, fontWeight: 700, marginTop: 6 }}>Ver todas</button>
+          </Card>
+        ) : bookings.length === 0 ? (
           <Empty icon={FileText} title="Aún no hay reservas" text="Pulsa «Añadir» para guardar tus vuelos, trenes y hoteles con su localizador, notas y documentos." />
         ) : groups.map(([type, arr]) => {
           const Ic = bIcon[type];
@@ -1803,6 +1838,10 @@ export default function App({ tripId, tripName, onBack }) {
                       <CheckBox on={conf} onClick={() => patchBkById(b.id, { status: conf ? "pendiente" : "confirmado" })} />
                       <button onClick={() => { setAttErr(""); setEditing({ kind: "booking", id: b.id }); }} className="flex-1 text-left min-w-0">
                         <div style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>{b.title}</div>
+                        <div className="flex items-center gap-1.5" style={{ fontSize: 11.5, color: C.sub }}>
+                          <span style={{ width: 7, height: 7, borderRadius: 99, background: EXP_COLORS[catOfBooking(b)], flexShrink: 0 }} />
+                          <span>{catOfBooking(b)}</span>
+                        </div>
                         <div style={{ fontSize: 11.5, color: C.sub }}>{fmtBookingDates(b)}{fmtBookingDates(b) && b.detail ? " · " : ""}{b.detail}</div>
                         {(b.ref || (b.att && b.att.length) || b.notes || b.link || b.price > 0) && (
                           <div className="flex items-center gap-2.5 mt-1">
@@ -2160,7 +2199,7 @@ export default function App({ tripId, tripName, onBack }) {
             {k === "booking" && (
               <>
                 <div className="flex gap-2">
-                  <div className="flex-1"><Field label="Tipo"><select value={bk.type} onChange={(e) => patchBk({ type: e.target.value })} style={inp}>{["Vuelo", "Tren", "Hotel", "Actividad"].map((t) => <option key={t}>{t}</option>)}</select></Field></div>
+                  <div className="flex-1"><Field label="Tipo"><select value={bk.type} onChange={(e) => { const type = e.target.value; patchBk({ type, cat: BOOKING_TO_CAT[type] || "Otros" }); }} style={inp}>{["Vuelo", "Tren", "Hotel", "Actividad"].map((t) => <option key={t}>{t}</option>)}</select></Field></div>
                   {bk.type !== "Hotel" && (
                     <div style={{ width: 150 }}><Field label="Fecha"><input type="date" {...tripDates} value={bk.date || ""} onChange={(e) => patchBk({ date: clampTrip(e.target.value) })} style={{ ...inp, ...mono, fontSize: 14 }} /></Field></div>
                   )}
@@ -2179,6 +2218,11 @@ export default function App({ tripId, tripName, onBack }) {
                   </Field>
                 )}
                 <Field label="Título"><input value={bk.title} onChange={(e) => patchBk({ title: e.target.value })} style={inp} /></Field>
+                <Field label="Categoría" hint="Es la categoría con la que cuenta en Gastos.">
+                  <select value={catOfBooking(bk)} onChange={(e) => patchBk({ cat: e.target.value })} style={inp}>
+                    {EXP_CATS.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </Field>
                 <Field label="Detalle"><input value={bk.detail} onChange={(e) => patchBk({ detail: e.target.value })} placeholder={bk.type === "Hotel" ? "Tipo de habitación, desayuno…" : "Horario, nº de asiento, etc."} style={inp} /></Field>
                 <Field label="Precio" hint={twoCurrencies ? `Puedes ponerlo en ${currency.trip}: se convierte a ${currency.base} en Gastos.` : "Se suma automáticamente a tus gastos."}>
                   <div className="flex gap-2">
