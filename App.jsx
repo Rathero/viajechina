@@ -255,7 +255,7 @@ export default function App({ tripId, tripName, onBack }) {
   const [nc, setNc] = useState({ name: "", start: "", end: "", mode: "" });
   const [showAddCity, setShowAddCity] = useState(false);
   const [ne, setNe] = useState({ cat: "Comida", desc: "", amount: "", cur: "EUR", date: todayISO(), paidBy: "fa", link: "" });
-  const [nb, setNb] = useState({ type: "Hotel", cat: BOOKING_TO_CAT.Hotel, title: "", date: todayISO(), dateEnd: addDaysISO(todayISO(), 1), detail: "" });
+  const [nb, setNb] = useState({ type: "Hotel", cat: BOOKING_TO_CAT.Hotel, title: "", date: todayISO(), dateEnd: addDaysISO(todayISO(), 1) });
   const [bookingCat, setBookingCat] = useState(""); // filtro por categoría en Reservas
   const [showAddB, setShowAddB] = useState(false);
   const [np, setNp] = useState({ cat: "Otros", item: "" });
@@ -297,7 +297,19 @@ export default function App({ tripId, tripName, onBack }) {
           }
           /* `status` guarda si está reservado ("confirmado"/"pendiente"); se
              mantiene el valor antiguo para no migrar datos ya guardados. */
-          if (Array.isArray(d.bookings)) setBookings(d.bookings.map((b) => ({ ref: "", notes: "", att: [], status: "pendiente", link: "", dateEnd: "", price: null, cur: "", paidBy: "", paid: false, cat: "", meals: {}, place: "", ...b })));
+          if (Array.isArray(d.bookings)) setBookings(d.bookings.map((b) => {
+            /* El campo «Detalle» se retiró: lo que hubiera escrito se conserva
+               al principio de las notas para no perderlo. */
+            const det = (b.detail || "").trim();
+            const nts = (b.notes || "").trim();
+            return {
+              ref: "", notes: "", att: [], status: "pendiente", link: "", dateEnd: "",
+              price: null, cur: "", paidBy: "", paid: false, cat: "", meals: {}, place: "",
+              ...b,
+              notes: det ? (nts ? `${det}\n${nts}` : det) : nts,
+              detail: "",
+            };
+          }));
           if (Array.isArray(d.packing)) setPacking(d.packing);
           if (Array.isArray(d.expenses)) setExpenses(d.expenses.map((e) => ({ paidBy: "fa", link: "", ...e })));
           if (d.docsChk) setDocsChk(d.docsChk);
@@ -623,7 +635,7 @@ export default function App({ tripId, tripName, onBack }) {
   /* Cierra el formulario y descarta lo escrito. */
   const cancelAddBooking = () => {
     setShowAddB(false);
-    setNb({ type: nb.type, cat: nb.cat, title: "", date: tripDay(), dateEnd: nb.type === "Hotel" ? clampTrip(addDaysISO(tripDay(), 1)) : "", detail: "" });
+    setNb({ type: nb.type, cat: nb.cat, title: "", date: tripDay(), dateEnd: nb.type === "Hotel" ? clampTrip(addDaysISO(tripDay(), 1)) : "" });
   };
   const addBooking = () => {
     if (!nb.title.trim()) return;
@@ -634,7 +646,7 @@ export default function App({ tripId, tripName, onBack }) {
       dateEnd: nb.type === "Hotel" ? (nb.dateEnd || "") : "",
       cat: nb.cat || BOOKING_TO_CAT[nb.type] || "Otros",
     }]);
-    setNb({ type: nb.type, cat: nb.cat, title: "", date: nb.date, dateEnd: nb.type === "Hotel" ? addDaysISO(nb.date || todayISO(), 1) : "", detail: "" });
+    setNb({ type: nb.type, cat: nb.cat, title: "", date: nb.date, dateEnd: nb.type === "Hotel" ? addDaysISO(nb.date || todayISO(), 1) : "" });
     setShowAddB(false);
   };
 
@@ -1035,7 +1047,6 @@ export default function App({ tripId, tripName, onBack }) {
         const sub = [];
         const nb = nightsOf(b);
         if (b.date) sub.push(nb ? `${fmtShort(b.date)} → ${fmtShort(b.dateEnd)} · ${nb} noche${nb === 1 ? "" : "s"}` : fmtShort(b.date));
-        if (b.detail) sub.push(b.detail);
         if (mealsOf(b).length) sub.push(`incluye ${mealsOf(b).map(([, l]) => l.toLowerCase()).join(", ")}`);
         if (sub.length) h += `<div class="sub">${esc(sub.join(" · "))}</div>`;
         if (b.place && b.place.trim()) h += `<div><a class="lnk" href="${esc(mapsUrl(b.place))}">📍 ${esc(placeLabel(b.place))}</a></div>`;
@@ -1882,7 +1893,6 @@ export default function App({ tripId, tripName, onBack }) {
               </div>
             )}
             <input value={nb.title} onChange={(e) => setNb({ ...nb, title: e.target.value })} placeholder={nb.type === "Hotel" ? "Título (p. ej. Hotel en el centro)" : "Título (p. ej. Vuelo de ida)"} style={{ ...inp, marginBottom: 8 }} />
-            <input value={nb.detail} onChange={(e) => setNb({ ...nb, detail: e.target.value })} placeholder="Detalle" style={{ ...inp, marginBottom: 8 }} />
             <div className="flex gap-2">
               <button onClick={addBooking} disabled={!nb.title.trim()} className="flex-1 rounded-lg py-2.5" style={{ background: C.ink, color: "#fff", fontSize: 13.5, fontWeight: 700, opacity: nb.title.trim() ? 1 : 0.5 }}>Guardar</button>
               <button onClick={cancelAddBooking} className="flex-1 rounded-lg py-2.5" style={{ background: C.card, border: `1px solid ${C.line}`, color: C.sub, fontSize: 13.5, fontWeight: 600 }}>Cancelar</button>
@@ -1916,7 +1926,7 @@ export default function App({ tripId, tripName, onBack }) {
                           <span style={{ width: 7, height: 7, borderRadius: 99, background: EXP_COLORS[catOfBooking(b)], flexShrink: 0 }} />
                           <span>{catOfBooking(b)}</span>
                         </div>
-                        <div style={{ fontSize: 11.5, color: C.sub }}>{fmtBookingDates(b)}{fmtBookingDates(b) && b.detail ? " · " : ""}{b.detail}</div>
+                        {fmtBookingDates(b) && <div style={{ fontSize: 11.5, color: C.sub }}>{fmtBookingDates(b)}</div>}
                         {b.place && b.place.trim() && (
                           <div className="flex items-center gap-1 mt-0.5" style={{ fontSize: 11.5, color: C.sub, minWidth: 0 }}>
                             <MapPin size={11} style={{ flexShrink: 0 }} />
@@ -2373,7 +2383,6 @@ export default function App({ tripId, tripName, onBack }) {
                     </div>
                   </Field>
                 )}
-                <Field label="Detalle"><input value={bk.detail} onChange={(e) => patchBk({ detail: e.target.value })} placeholder={isStay(bk) ? "Tipo de habitación, vistas…" : "Horario, nº de asiento, etc."} style={inp} /></Field>
                 <Field label="Precio" hint={twoCurrencies ? `Puedes ponerlo en ${currency.trip}: se convierte a ${currency.base} en Gastos.` : "Se suma automáticamente a tus gastos."}>
                   <div className="flex gap-2">
                     <input value={bk.price == null ? "" : bk.price} onChange={(e) => { const v = e.target.value.replace(",", "."); patchBk({ price: v === "" ? null : (parseFloat(v) || 0) }); }} placeholder="0,00" inputMode="decimal" style={{ ...inp, flex: 1, ...mono }} />
