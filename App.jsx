@@ -201,6 +201,48 @@ const Field = ({ label, hint, children }) => (
     {hint && <div style={{ fontSize: 11.5, color: C.sub, marginTop: 5 }}>{hint}</div>}
   </div>
 );
+/* Campo para escribir importes.
+
+   El problema que resuelve: si el texto se convierte a número en cada tecla, al
+   escribir "12," la coma desaparece al instante y no hay manera de poner
+   decimales. Aquí el texto se mantiene tal cual mientras escribes y solo se
+   convierte a número por detrás.
+
+   Acepta coma o punto, siempre muestra coma (formato español) y admite como
+   mucho dos decimales. `onChange` recibe un número, o null si está vacío. */
+const AmountInput = ({ value, onChange, style, placeholder = "0,00", ...rest }) => {
+  const toText = (v) => (v == null || v === "" ? "" : String(v).replace(".", ","));
+  const [text, setText] = useState(() => toText(value));
+  const editing = useRef(false);
+
+  /* Si el valor cambia desde fuera (otro elemento, «Actualizar» del cambio…)
+     se refleja, pero nunca mientras el usuario está escribiendo. */
+  useEffect(() => { if (!editing.current) setText(toText(value)); }, [value]);
+
+  const handle = (raw) => {
+    let s = raw.replace(/[^\d.,]/g, "").replace(/\./g, ",");  // solo cifras y separador
+    const i = s.indexOf(",");
+    if (i >= 0) s = s.slice(0, i + 1) + s.slice(i + 1).replace(/,/g, "").slice(0, 2);
+    setText(s);
+    if (s === "" || s === ",") { onChange(null); return; }
+    const n = parseFloat(s.replace(",", "."));
+    onChange(Number.isFinite(n) ? n : null);
+  };
+
+  return (
+    <input
+      {...rest}
+      value={text}
+      placeholder={placeholder}
+      inputMode="decimal"
+      style={style}
+      onFocus={() => { editing.current = true; }}
+      onBlur={() => { editing.current = false; setText(toText(value)); }}
+      onChange={(e) => handle(e.target.value)}
+    />
+  );
+};
+
 const Empty = ({ icon: Ic, title, text }) => (
   <div className="flex flex-col items-center text-center px-6 py-10">
     <div className="flex items-center justify-center rounded-2xl mb-3" style={{ width: 56, height: 56, background: C.card, border: `1px solid ${C.line}` }}>
@@ -1489,7 +1531,7 @@ export default function App({ tripId, tripName, onBack }) {
             </div>
 
             <div className="flex gap-2 mb-2">
-              <input value={conv.amount} onChange={(e) => setConv({ ...conv, amount: e.target.value })} placeholder="0,00" inputMode="decimal" autoFocus style={{ ...inp, flex: 1, ...mono }} />
+              <AmountInput value={conv.amount} onChange={(n) => setConv({ ...conv, amount: n })} autoFocus style={{ ...inp, flex: 1, ...mono }} />
               <select value={conv.from} onChange={(e) => { const v = e.target.value; setConv({ ...conv, from: v }); loadConvRates(v); }} style={{ ...inp, width: "auto" }}>
                 {CURRENCIES.map(([c, s]) => <option key={c} value={c}>{s} {c}</option>)}
               </select>
@@ -1666,7 +1708,7 @@ export default function App({ tripId, tripName, onBack }) {
             {renderPayerPicker(ne.paidBy, (v) => setNe({ ...ne, paidBy: v }), false)}
           </div>
           <div className="flex gap-2 mb-2">
-            <input value={ne.amount} onChange={(e) => setNe({ ...ne, amount: e.target.value })} placeholder="0,00" inputMode="decimal" style={{ ...inp, flex: 1, ...mono }} />
+            <AmountInput value={ne.amount} onChange={(n) => setNe({ ...ne, amount: n })} style={{ ...inp, flex: 1, ...mono }} />
             {renderCurSelect(ne.cur, (v) => setNe({ ...ne, cur: v }))}
           </div>
           <div className="flex gap-2">
@@ -1789,7 +1831,7 @@ export default function App({ tripId, tripName, onBack }) {
             <div className="flex items-center justify-between gap-2">
               <span style={{ fontSize: 13, color: C.sub }}>1 {currency.base} = {currency.trip}</span>
               <div className="flex items-center gap-2">
-                <input value={rate} onChange={(e) => { setRate(parseFloat(String(e.target.value).replace(",", ".")) || 0); setRateUpdated(""); }} inputMode="decimal" style={{ ...inp, width: 96, textAlign: "right", ...mono, padding: "6px 10px" }} />
+                <AmountInput value={rate} onChange={(n) => { setRate(n || 0); setRateUpdated(""); }} placeholder="0" style={{ ...inp, width: 96, textAlign: "right", ...mono, padding: "6px 10px" }} />
                 <button onClick={refreshRate} disabled={rateBusy} className="rounded-lg px-3 py-2" style={{ background: C.jade, color: "#fff", fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap", opacity: rateBusy ? 0.6 : 1 }}>
                   {rateBusy ? "…" : "Actualizar"}
                 </button>
@@ -1802,7 +1844,7 @@ export default function App({ tripId, tripName, onBack }) {
         )}
         <div className="flex items-center justify-between gap-3">
           <span style={{ fontSize: 13, color: C.sub }}>Presupuesto ({symOf(currency.base)})</span>
-          <input value={budget || ""} onChange={(e) => setBudget(parseFloat(e.target.value) || 0)} placeholder="0" inputMode="decimal" style={{ ...inp, width: 110, textAlign: "right", ...mono, padding: "6px 12px" }} />
+          <AmountInput value={budget || ""} onChange={(n) => setBudget(n || 0)} placeholder="0" style={{ ...inp, width: 110, textAlign: "right", ...mono, padding: "6px 12px" }} />
         </div>
       </Card>
   );
@@ -2308,7 +2350,7 @@ export default function App({ tripId, tripName, onBack }) {
                 <Field label="Actividad"><input value={act.x} onChange={(e) => patchAct({ x: e.target.value })} placeholder="¿Qué vais a hacer?" style={inp} /></Field>
                 <Field label="Precio" hint="Se suma automáticamente a tus gastos.">
                   <div className="flex gap-2">
-                    <input value={act.price == null ? "" : act.price} onChange={(e) => { const v = e.target.value.replace(",", "."); patchAct({ price: v === "" ? null : (parseFloat(v) || 0) }); }} placeholder="0,00" inputMode="decimal" style={{ ...inp, flex: 1, ...mono }} />
+                    <AmountInput value={act.price} onChange={(n) => patchAct({ price: n })} style={{ ...inp, flex: 1, ...mono }} />
                     {renderCurSelect(act.cur, (v) => patchAct({ cur: v }))}
                   </div>
                 </Field>
@@ -2385,7 +2427,7 @@ export default function App({ tripId, tripName, onBack }) {
                 )}
                 <Field label="Precio" hint={twoCurrencies ? `Puedes ponerlo en ${currency.trip}: se convierte a ${currency.base} en Gastos.` : "Se suma automáticamente a tus gastos."}>
                   <div className="flex gap-2">
-                    <input value={bk.price == null ? "" : bk.price} onChange={(e) => { const v = e.target.value.replace(",", "."); patchBk({ price: v === "" ? null : (parseFloat(v) || 0) }); }} placeholder="0,00" inputMode="decimal" style={{ ...inp, flex: 1, ...mono }} />
+                    <AmountInput value={bk.price} onChange={(n) => patchBk({ price: n })} style={{ ...inp, flex: 1, ...mono }} />
                     {renderCurSelect(bk.cur || currency.base, (v) => patchBk({ cur: v }))}
                   </div>
                   {bk.price > 0 && bk.cur && bk.cur !== currency.base && (
@@ -2489,7 +2531,7 @@ export default function App({ tripId, tripName, onBack }) {
                 <Field label="Descripción"><input value={exp.desc || ""} onChange={(e) => patchExpense({ desc: e.target.value })} placeholder="Descripción" style={inp} /></Field>
                 <Field label="Importe">
                   <div className="flex gap-2">
-                    <input value={exp.amount} onChange={(e) => patchExpense({ amount: e.target.value })} placeholder="0,00" inputMode="decimal" style={{ ...inp, flex: 1, ...mono }} />
+                    <AmountInput value={exp.amount} onChange={(n) => patchExpense({ amount: n })} style={{ ...inp, flex: 1, ...mono }} />
                     {renderCurSelect(exp.cur, (v) => patchExpense({ cur: v }))}
                   </div>
                 </Field>
