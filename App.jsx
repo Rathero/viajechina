@@ -250,11 +250,7 @@ export default function App({ tripId, tripName, onBack }) {
   const [hydrated, setHydrated] = useState(false);
   const [loadErr, setLoadErr] = useState("");
   const [saveErr, setSaveErr] = useState(false);
-  const [conflict, setConflict] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
-  /* Marca de la última versión conocida del viaje. Sirve para detectar que otra
-     persona (viaje compartido) ha guardado mientras editábamos. */
-  const lastStamp = useRef(null);
   // formularios
   const [nc, setNc] = useState({ name: "", start: "", end: "", mode: "" });
   const [showAddCity, setShowAddCity] = useState(false);
@@ -289,7 +285,6 @@ export default function App({ tripId, tripName, onBack }) {
         const r = await store.get(STORAGE_KEY);
         if (r && r.value) {
           const d = JSON.parse(r.value);
-          lastStamp.current = d.savedAt || null;
           if (typeof d.tripTitle === "string") setTripTitle(d.tripTitle);
           if (Array.isArray(d.itin)) {
             const it = d.itin.map((c) => ({ into: null, color: PALETTE[0], days: [], link: "", ...c, days: (c.days || []).map((dd) => ({ title: "", items: [], link: "", ...dd, items: (dd.items || []).map((a) => ({ booked: false, notes: "", price: null, cur: "EUR", att: [], tEnd: "", paidBy: "", link: "", orphan: false, ...a })) })) }));
@@ -351,17 +346,7 @@ export default function App({ tripId, tripName, onBack }) {
     if (saveT.current) clearTimeout(saveT.current);
     saveT.current = setTimeout(async () => {
       try {
-        /* Viajes compartidos: si otra persona ha guardado desde que cargamos,
-           no pisamos su versión; avisamos para recargar. */
-        try {
-          const r = await store.get(STORAGE_KEY);
-          const remote = r && r.value ? (JSON.parse(r.value).savedAt || null) : null;
-          if (remote && lastStamp.current && remote !== lastStamp.current) { setConflict(true); return; }
-        } catch (e) {}
-
-        const savedAt = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        await store.set(STORAGE_KEY, JSON.stringify({ tripTitle, itin, bookings, packing, expenses, docsChk, rate, rateUpdated, budget, tasks, experiences, diary, payerNames, currency, savedAt }));
-        lastStamp.current = savedAt;
+        await store.set(STORAGE_KEY, JSON.stringify({ tripTitle, itin, bookings, packing, expenses, docsChk, rate, rateUpdated, budget, tasks, experiences, diary, payerNames, currency }));
         setSaveErr(false);
       } catch (e) { setSaveErr(true); }
     }, 400);
@@ -2565,20 +2550,10 @@ export default function App({ tripId, tripName, onBack }) {
   return (
     <div style={{ background: C.paper, minHeight: "100vh", maxWidth: 480, margin: "0 auto", fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif", color: C.ink }}>
       <div style={{ position: "sticky", top: 0, zIndex: 30, background: "rgba(237,241,244,0.92)", backdropFilter: "blur(8px)", borderBottom: `1px solid ${C.line}` }}>
-        {saveErr && !conflict && (
+        {saveErr && (
           <div className="flex items-center gap-2" style={{ background: C.red, color: "#fff", padding: "7px 14px", fontSize: 12.5, fontWeight: 600 }}>
             <AlertCircle size={15} style={{ flexShrink: 0 }} />
             <span>Sin guardar: revisa tu conexión. No cierres la app.</span>
-          </div>
-        )}
-        {conflict && (
-          <div className="flex items-center gap-2" style={{ background: C.gold, color: "#5A3E0B", padding: "7px 14px", fontSize: 12.5, fontWeight: 600 }}>
-            <AlertCircle size={15} style={{ flexShrink: 0 }} />
-            <span className="flex-1">Otra persona ha editado este viaje.</span>
-            <button onClick={() => { setConflict(false); lastStamp.current = null; setHydrated(false); setReloadKey((k) => k + 1); }}
-              style={{ background: "#5A3E0B", color: "#fff", border: "none", borderRadius: 7, padding: "3px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
-              Recargar
-            </button>
           </div>
         )}
         <div className="flex items-center gap-3" style={{ padding: "10px 14px" }}>
