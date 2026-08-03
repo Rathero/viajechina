@@ -166,6 +166,17 @@ const catOfBooking = (b) => (b && b.cat) || BOOKING_TO_CAT[b && b.type] || "Otro
 const MEALS = [["desayuno", "Desayuno"], ["comida", "Comida"], ["cena", "Cena"]];
 const isStay = (b) => catOfBooking(b) === "Alojamiento";
 const mealsOf = (b) => MEALS.filter(([k]) => b && b.meals && b.meals[k]);
+/* Ubicación: admite tanto una dirección escrita como un enlace de Maps pegado.
+   Si es texto, se abre como búsqueda en Google Maps. */
+const mapsUrl = (place) => {
+  const s = (place || "").trim();
+  if (!s) return "";
+  if (/^https?:\/\//i.test(s)) return s;
+  if (/^(www\.)?(google\.[a-z.]+\/maps|maps\.app\.goo\.gl|goo\.gl\/maps)/i.test(s)) return "https://" + s;
+  return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(s);
+};
+/* Un enlace pegado no se puede enseñar entero en la lista: se acorta. */
+const placeLabel = (s) => (/^https?:\/\//i.test(s || "") || /^(www\.)?(google\.|maps\.app)/i.test(s || "") ? "Ver ubicación" : s);
 /* Personas que comparten gastos: Fa (yo) y Rubén */
 /* Las dos personas que comparten gastos. Las claves ("fa"/"ruben") son internas y
    no se muestran nunca: los nombres visibles se guardan por viaje en `payerNames`. */
@@ -291,7 +302,7 @@ export default function App({ tripId, tripName, onBack }) {
           }
           /* `status` guarda si está reservado ("confirmado"/"pendiente"); se
              mantiene el valor antiguo para no migrar datos ya guardados. */
-          if (Array.isArray(d.bookings)) setBookings(d.bookings.map((b) => ({ ref: "", notes: "", att: [], status: "pendiente", link: "", dateEnd: "", price: null, cur: "", paidBy: "", paid: false, cat: "", meals: {}, ...b })));
+          if (Array.isArray(d.bookings)) setBookings(d.bookings.map((b) => ({ ref: "", notes: "", att: [], status: "pendiente", link: "", dateEnd: "", price: null, cur: "", paidBy: "", paid: false, cat: "", meals: {}, place: "", ...b })));
           if (Array.isArray(d.packing)) setPacking(d.packing);
           if (Array.isArray(d.expenses)) setExpenses(d.expenses.map((e) => ({ paidBy: "fa", link: "", ...e })));
           if (d.docsChk) setDocsChk(d.docsChk);
@@ -632,7 +643,7 @@ export default function App({ tripId, tripName, onBack }) {
   const addBooking = () => {
     if (!nb.title.trim()) return;
     setBookings((x) => [...x, {
-      id: "b" + Date.now(), status: "pendiente", paid: false, ref: "", notes: "", link: "", att: [], meals: {},
+      id: "b" + Date.now(), status: "pendiente", paid: false, ref: "", notes: "", link: "", att: [], meals: {}, place: "",
       price: null, cur: currency.base, paidBy: "",
       ...nb,
       dateEnd: nb.type === "Hotel" ? (nb.dateEnd || "") : "",
@@ -1042,6 +1053,7 @@ export default function App({ tripId, tripName, onBack }) {
         if (b.detail) sub.push(b.detail);
         if (mealsOf(b).length) sub.push(`incluye ${mealsOf(b).map(([, l]) => l.toLowerCase()).join(", ")}`);
         if (sub.length) h += `<div class="sub">${esc(sub.join(" · "))}</div>`;
+        if (b.place && b.place.trim()) h += `<div><a class="lnk" href="${esc(mapsUrl(b.place))}">📍 ${esc(placeLabel(b.place))}</a></div>`;
         if (b.price > 0) {
           const orig = fmtAmount(b.price, b.cur || currency.base);
           const conv = b.cur && b.cur !== currency.base ? ` (${money(toBase(b.price, b.cur))})` : "";
@@ -1920,6 +1932,12 @@ export default function App({ tripId, tripName, onBack }) {
                           <span>{catOfBooking(b)}</span>
                         </div>
                         <div style={{ fontSize: 11.5, color: C.sub }}>{fmtBookingDates(b)}{fmtBookingDates(b) && b.detail ? " · " : ""}{b.detail}</div>
+                        {b.place && b.place.trim() && (
+                          <div className="flex items-center gap-1 mt-0.5" style={{ fontSize: 11.5, color: C.sub, minWidth: 0 }}>
+                            <MapPin size={11} style={{ flexShrink: 0 }} />
+                            <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{placeLabel(b.place)}</span>
+                          </div>
+                        )}
                         {mealsOf(b).length > 0 && (
                           <div className="flex items-center gap-1 flex-wrap mt-1">
                             <Utensils size={11} color={C.jade} style={{ flexShrink: 0 }} />
@@ -1945,6 +1963,14 @@ export default function App({ tripId, tripName, onBack }) {
                           </div>
                         )}
                       </button>
+                      {b.place && b.place.trim() && (
+                        <a href={mapsUrl(b.place)} target="_blank" rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()} title="Cómo llegar (Google Maps)" aria-label="Cómo llegar"
+                          className="flex items-center justify-center rounded-lg"
+                          style={{ width: 34, height: 34, background: C.jade + "14", border: `1px solid ${C.jade}44`, color: C.jade, flexShrink: 0, textDecoration: "none" }}>
+                          <MapPin size={16} />
+                        </a>
+                      )}
                       <ChevronRight size={16} color={C.line} />
                     </div>
                   );
@@ -2331,6 +2357,20 @@ export default function App({ tripId, tripName, onBack }) {
                     {EXP_CATS.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </Field>
+                {isStay(bk) && (
+                  <Field label="Ubicación" hint="Escribe la dirección o pega el enlace de Google Maps.">
+                    <div className="flex gap-2">
+                      <input value={bk.place || ""} onChange={(e) => patchBk({ place: e.target.value })} placeholder="Calle, ciudad — o enlace de Maps" style={{ ...inp, flex: 1 }} />
+                      {bk.place && bk.place.trim() ? (
+                        <a href={mapsUrl(bk.place)} target="_blank" rel="noopener noreferrer" className="rounded-lg px-3 flex items-center justify-center" style={{ background: C.jade, color: "#fff", flexShrink: 0, textDecoration: "none" }} title="Abrir en Google Maps">
+                          <MapPin size={18} />
+                        </a>
+                      ) : (
+                        <div className="rounded-lg px-3 flex items-center justify-center" style={{ background: C.card, border: `1px solid ${C.line}`, color: C.line, flexShrink: 0 }}><MapPin size={18} /></div>
+                      )}
+                    </div>
+                  </Field>
+                )}
                 {isStay(bk) && (
                   <Field label="El alojamiento incluye">
                     <div className="flex gap-2">
