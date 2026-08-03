@@ -212,21 +212,25 @@ const Field = ({ label, hint, children }) => (
    mucho dos decimales. `onChange` recibe un número, o null si está vacío. */
 const AmountInput = ({ value, onChange, style, placeholder = "0,00", ...rest }) => {
   const toText = (v) => (v == null || v === "" ? "" : String(v).replace(".", ","));
+  const toNum = (t) => (t === "" || t === "," ? null : (Number.isFinite(parseFloat(String(t).replace(",", "."))) ? parseFloat(String(t).replace(",", ".")) : null));
   const [text, setText] = useState(() => toText(value));
-  const editing = useRef(false);
 
-  /* Si el valor cambia desde fuera (otro elemento, «Actualizar» del cambio…)
-     se refleja, pero nunca mientras el usuario está escribiendo. */
-  useEffect(() => { if (!editing.current) setText(toText(value)); }, [value]);
+  /* Se recoge el valor de fuera (otro elemento, «Actualizar» del cambio…) solo
+     si es un importe distinto del que hay escrito. Así "12," y "12,50" no se
+     reescriben mientras tecleas, pero abrir otro elemento sí refresca el campo.
+     Comparar números en vez de fiarse del foco lo hace robusto en móvil. */
+  useEffect(() => {
+    const dentro = toNum(text);
+    const fuera = value == null || value === "" ? null : Number(value);
+    if (dentro !== fuera) setText(toText(value));
+  }, [value]);
 
   const handle = (raw) => {
     let s = raw.replace(/[^\d.,]/g, "").replace(/\./g, ",");  // solo cifras y separador
     const i = s.indexOf(",");
     if (i >= 0) s = s.slice(0, i + 1) + s.slice(i + 1).replace(/,/g, "").slice(0, 2);
     setText(s);
-    if (s === "" || s === ",") { onChange(null); return; }
-    const n = parseFloat(s.replace(",", "."));
-    onChange(Number.isFinite(n) ? n : null);
+    onChange(toNum(s));
   };
 
   return (
@@ -236,8 +240,7 @@ const AmountInput = ({ value, onChange, style, placeholder = "0,00", ...rest }) 
       placeholder={placeholder}
       inputMode="decimal"
       style={style}
-      onFocus={() => { editing.current = true; }}
-      onBlur={() => { editing.current = false; setText(toText(value)); }}
+      onBlur={() => setText(toText(value))}
       onChange={(e) => handle(e.target.value)}
     />
   );
