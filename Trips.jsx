@@ -173,7 +173,7 @@ export default function Trips({ session, onOpen }) {
   };
 
   return (
-    <div style={{ background: C.paper, minHeight: "100vh", maxWidth: 480, margin: "0 auto", fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif", color: C.ink }}>
+    <div style={{ background: C.paper, minHeight: "100vh", maxWidth: 480, margin: "0 auto", fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif", color: C.ink, paddingTop: "var(--safe-top)" }}>
       <div style={{ padding: "20px 20px 24px" }}>
         <div style={{ ...row, justifyContent: "space-between" }}>
           <div style={{ minWidth: 0 }}>

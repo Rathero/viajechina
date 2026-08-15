@@ -6,7 +6,21 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "icons": "node scripts/generate-icons.mjs",
+
+    "twa:sync": "node scripts/twa-sync.mjs",
+    "twa:host": "node scripts/twa-sync.mjs --host",
+    "twa:fingerprint": "node scripts/twa-sync.mjs --fingerprint",
+    "twa:bump": "node scripts/twa-sync.mjs --bump",
+    "twa:check": "node scripts/twa-sync.mjs --check",
+
+    "android:setup": "node scripts/android-toolchain.mjs",
+    "android:doctor": "node scripts/android.mjs doctor",
+    "android:keystore": "node scripts/android.mjs keystore",
+    "android:fingerprint": "node scripts/android.mjs fingerprint",
+    "android:update": "node scripts/android.mjs update",
+    "android:build": "node scripts/android.mjs build"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
@@ -16,6 +30,7 @@
     "recharts": "^2.12.7"
   },
   "devDependencies": {
+    "@bubblewrap/cli": "^1.25.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.5.4",
     "postcss": "^8.5.23",

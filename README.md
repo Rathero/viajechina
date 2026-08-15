@@ -52,6 +52,23 @@ npm run dev                     # http://localhost:5173
    - `VITE_SUPABASE_ANON_KEY`
 4. **Deploy**. Listo.
 
+## 4. Publicar en Google Play
+
+La app se empaqueta como **TWA**: un contenedor Android que abre esta misma web
+con el motor de Chrome, sin barra de URL. No hay una segunda base de código, y
+las correcciones que despliegues en Vercel llegan al móvil sin pasar por Play.
+
+```bash
+npm run android:setup                  # JDK 17 + Android SDK (una vez por equipo)
+npm run twa:host -- tu-dominio.com     # dominio de producción
+npm run android:keystore               # clave de firma (elige tú la contraseña)
+npm run android:fingerprint            # registra su huella en assetlinks.json
+npm run android:build                  # genera android/app-release-bundle.aab
+```
+
+El proceso completo — ficha de Play, formulario de seguridad de los datos,
+huellas SHA-256 y actualizaciones posteriores — está en **[PLAY_STORE.md](PLAY_STORE.md)**.
+
 ## Cuentas y viajes
 
 Cada usuario inicia sesión con **Google** o **email + contraseña**. En "Mis viajes" puede crear,
@@ -107,6 +124,7 @@ sesión para mantenerte logueado entre recargas.)
 ├── index.html            # carga Tailwind (CDN) y la app
 ├── package.json
 ├── vite.config.js
+├── vercel.json           # rewrite de SPA y cabeceras (assetlinks, manifest, service worker)
 ├── .env.example
 ├── supabase.sql          # tablas trips + kv + trip_shares con RLS (pegar en Supabase)
 ├── main.jsx              # arranque
@@ -117,5 +135,16 @@ sesión para mantenerte logueado entre recargas.)
 ├── store.js             # capa de datos clave-valor (escribe en la copia del dueño)
 ├── tripsApi.js          # CRUD de viajes (tabla trips)
 ├── sharingApi.js        # invitaciones y membresías (tabla trip_shares)
-└── App.jsx              # el planificador de un viaje
+├── backstack.js         # botón Atrás de Android: cierra capas en vez de salir
+├── App.jsx              # el planificador de un viaje
+│
+├── PLAY_STORE.md         # guía de publicación en Google Play
+├── twa.config.json       # config de la app Android (dominio, id, versión, huellas)
+├── supabase/functions/
+│   └── delete-account/   # borrado de cuenta (obligatorio en Play); desplegar aparte
+└── scripts/
+    ├── generate-icons.mjs    # iconos de la PWA y de Play
+    ├── twa-sync.mjs          # genera twa-manifest.json y assetlinks.json
+    ├── android.mjs           # keystore, huella, build del .aab
+    └── android-toolchain.mjs # instala JDK 17 + Android SDK
 ```

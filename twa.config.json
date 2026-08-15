@@ -1,0 +1,38 @@
+{
+  "$comment": [
+    "Única fuente de verdad de la parte Android (Google Play).",
+    "Todo lo visual (nombre, colores, iconos, orientación) se lee de",
+    "public/manifest.webmanifest para no tener la marca duplicada en dos sitios.",
+    "Aquí solo van los datos que la web no tiene.",
+    "",
+    "Tras editar este archivo ejecuta:  npm run twa:sync"
+  ],
+  "host": "",
+  "$comment_host": "Dominio de producción, SIN https:// ni barra final. Ej: miviaje.app. Atajo: npm run twa:host -- miviaje.app",
+  "applicationId": "com.miviaje.app",
+  "$comment_applicationId": "PERMANENTE. Una vez publicado en Play no se puede cambiar nunca.",
+  "versionCode": 1,
+  "$comment_versionCode": "Entero. Play exige que cada subida lo incremente. Atajo: npm run twa:bump",
+  "minSdkVersion": 23,
+  "$comment_minSdkVersion": "Android 6. Por debajo de 23 los TWA no funcionan de forma fiable.",
+  "signingKeyFingerprints": [],
+  "$comment_signingKeyFingerprints": [
+    "Huellas SHA-256 que se publican en /.well-known/assetlinks.json.",
+    "Sin ellas la app se abre con la barra de URL de Chrome encima: Play no la rechaza,",
+    "pero deja de parecer una app nativa.",
+    "Hacen falta DOS, y se añaden en momentos distintos:",
+    "  1) La de tu keystore de subida (upload key), disponible nada más crearlo:",
+    "       keytool -list -v -keystore android.keystore -alias android",
+    "  2) La que genera Google (app signing key), disponible SOLO después de subir",
+    "     el primer .aab: Play Console → Prueba y versión → Firma de aplicaciones.",
+    "Atajo para añadirlas: npm run twa:fingerprint -- AA:BB:CC:..."
+  ],
+  "shortcuts": [
+    {
+      "name": "Mis viajes",
+      "shortName": "Viajes",
+      "url": "/",
+      "icon": "/icons/icon-192.png"
+    }
+  ]
+}

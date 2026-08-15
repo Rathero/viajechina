@@ -4,10 +4,37 @@
 
 /* La app usa color y tipografía en línea (objeto C de App.jsx). Aquí solo van
    los ajustes globales que el preflight de Tailwind no cubre. */
+
+:root {
+  /* Zonas que tapa el sistema: muesca y barra de estado arriba, barra de gestos
+     abajo. En un navegador de escritorio valen 0. Se usan desde los estilos en
+     línea como var(--safe-top) / var(--safe-bottom). */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 html,
 body {
   background: #edf1f4;
   -webkit-tap-highlight-color: transparent;
+
+  /* Android agranda por su cuenta la tipografía de bloques de texto largos y
+     descuadra la maquetación. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+
+  /* Instalada como app, arrastrar hacia abajo dispara el "tirar para recargar"
+     de Chrome: recarga entera estando a media edición. Fuera. */
+  overscroll-behavior-y: contain;
+}
+
+/* Los laterales y la parte de abajo son iguales en todas las pantallas.
+   El borde superior lo pone cada pantalla, porque la de un viaje lleva una
+   cabecera pegajosa que debe pintarse POR DEBAJO de la barra de estado. */
+body {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-bottom: var(--safe-bottom);
 }
 
 /* Foco visible para teclado, sin marcarlo al tocar con el dedo. */
