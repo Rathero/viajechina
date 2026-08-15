@@ -1022,7 +1022,7 @@ export default function App({ tripId, tripName, onBack }) {
     const now = new Date();
     const pad2 = (n) => String(n).padStart(2, "0");
     const stamp = `${pad2(now.getDate())}/${pad2(now.getMonth() + 1)}/${now.getFullYear()} a las ${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
-    h += `<header><div class="brand">MI VIAJE</div><h1>${esc(tripTitle || "Viaje")}</h1><p class="gen">📅 Descargado el ${esc(stamp)}</p></header>`;
+    h += `<header><div class="brand">WAYNODE</div><h1>${esc(tripTitle || "Viaje")}</h1><p class="gen">📅 Descargado el ${esc(stamp)}</p></header>`;
 
     // 1) Resumen
     const routeLabel = itin.length ? `${itin[0].city} → ${itin[itin.length - 1].city}` : "Sin paradas";
@@ -1218,7 +1218,7 @@ export default function App({ tripId, tripName, onBack }) {
     <div className="px-5 pb-6">
       <div className="rounded-2xl px-5 pt-6 pb-5 mb-4" style={{ background: C.ink, color: "#EAF2F7" }}>
         <div className="flex items-center gap-2 mb-1" style={{ color: C.gold, ...mono, fontSize: 12, letterSpacing: 2 }}>
-          <Plane size={13} /> MI VIAJE
+          <Plane size={13} /> WAYNODE
         </div>
         <input value={tripTitle} onChange={(e) => setTripTitle(e.target.value)} placeholder="Nombre del viaje"
           style={{ fontSize: 42, fontWeight: 800, lineHeight: 1.05, letterSpacing: -1, background: "transparent", border: "none", outline: "none", color: "#EAF2F7", width: "100%", padding: 0 }} />
@@ -2634,7 +2634,7 @@ export default function App({ tripId, tripName, onBack }) {
           <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: 270, maxWidth: "84%", background: C.paper, borderRight: `1px solid ${C.line}`, boxShadow: "2px 0 28px rgba(20,16,12,0.20)", display: "flex", flexDirection: "column", overflowY: "auto", animation: "drawerIn 0.18s ease-out" }}>
             <div className="flex items-start justify-between" style={{ padding: "18px 16px 14px", borderBottom: `1px solid ${C.line}` }}>
               <div className="min-w-0">
-                <div className="flex items-center gap-1.5" style={{ color: "#C9962E", ...mono, fontSize: 11, letterSpacing: 2 }}><Plane size={12} /> MI VIAJE</div>
+                <div className="flex items-center gap-1.5" style={{ color: "#C9962E", ...mono, fontSize: 11, letterSpacing: 2 }}><Plane size={12} /> WAYNODE</div>
                 <div style={{ fontSize: 19, fontWeight: 800, color: C.ink, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tripTitle}</div>
               </div>
               <button onClick={() => setDrawerOpen(false)} aria-label="Cerrar menú" className="rounded-full p-1.5" style={{ background: C.card, border: `1px solid ${C.line}`, flexShrink: 0 }}><X size={16} color={C.sub} /></button>

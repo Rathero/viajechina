@@ -11,7 +11,7 @@ misma persona. Sin él, la app se abre con la barra del navegador arriba,
 como si fuera una página web, y no parece una app de verdad.
 
 Cuando esté puesto, comprueba que se ve abriendo en el navegador:
-   https://TU-DOMINIO/.well-known/assetlinks.json
+   https://waynodeapp.com/.well-known/assetlinks.json
 
 IMPORTANTE: el archivo tiene que tener DOS huellas digitales
 ("sha256_cert_fingerprints"):
@@ -19,3 +19,7 @@ IMPORTANTE: el archivo tiene que tener DOS huellas digitales
   2. La que te da Google Play en: Play Console > Configuración >
      Integridad de la aplicación > Certificado de la clave de firma.
 Si solo pones la primera, la app se abrirá con la barra del navegador.
+
+El identificador de la app (package_name) debe ser exactamente el mismo
+que pongas en PWABuilder:
+   com.waynodeapp.app

@@ -9,7 +9,7 @@
    Ojo: la app necesita conexión para leer y guardar datos. Este SW hace que
    abra rápido, no que funcione sin internet. */
 
-const CACHE = "miviaje-v1";
+const CACHE = "waynode-v1";
 const SHELL = "/index.html";
 
 self.addEventListener("install", (e) => {
