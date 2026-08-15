@@ -3,6 +3,7 @@ import App from "./App";
 import Login from "./Login";
 import Trips from "./Trips";
 import { supabase, isConfigured } from "./supabase";
+import { useBackLayer } from "./backstack";
 
 const C = { ink: "#0B2239", sub: "#5B6B78", paper: "#EDF1F4", card: "#FFFFFF", red: "#FF5A3C", line: "#DCE4EA", jade: "#1CA6A6", gold: "#FFC857" };
 const center = { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "system-ui, sans-serif", color: C.sub, background: C.paper };
@@ -62,6 +63,10 @@ export default function Root() {
     });
     return () => sub && sub.subscription && sub.subscription.unsubscribe();
   }, []);
+
+  /* Botón Atrás de Android: desde un viaje vuelve a "Mis viajes"; desde
+     "Mis viajes" sale de la app, que es lo esperado. Ver backstack.js. */
+  useBackLayer(!!trip, () => setTrip(null));
 
   if (!ready) return <div style={center}>Cargando…</div>;
   if (recovery) return <ResetPassword onDone={() => setRecovery(false)} />;

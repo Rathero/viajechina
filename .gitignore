@@ -9,6 +9,22 @@ dist/
 .env.local
 .env.*.local
 
+# Android / Google Play
+# Proyecto que genera Bubblewrap: se reconstruye entero desde twa.config.json.
+android/
+
+# LA CLAVE DE FIRMA NUNCA SE SUBE A GIT.
+# Si se pierde y no tienes activada la firma por Google, no podrás publicar
+# actualizaciones de la app NUNCA MÁS: hay que copiarla a un sitio seguro
+# fuera del repositorio (gestor de contraseñas, disco cifrado…).
+*.keystore
+*.jks
+android.keystore
+
+# Artefactos de compilación
+*.aab
+*.apk
+
 # Logs
 npm-debug.log*
 yarn-debug.log*

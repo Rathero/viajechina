@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { store } from "./store";
+import { useBackLayer } from "./backstack";
 
 /* ============ paleta y constantes ============ */
 /* Paleta de marca:
@@ -321,6 +322,15 @@ export default function App({ tripId, tripName, onBack }) {
   const dragPos = useRef({ x: 0, y: 0 });
   const saveT = useRef(null);
   const skipTodayScroll = useRef(false);
+
+  /* Botón Atrás de Android: cierra lo que esté abierto encima en vez de salir
+     de la app. El orden de estas líneas no importa; manda el orden en que el
+     usuario abre las capas. Ver backstack.js. */
+  useBackLayer(!!editing, () => { setEditing(null); setAttErr(""); });
+  useBackLayer(drawerOpen, () => setDrawerOpen(false));
+  useBackLayer(!!lightbox, () => setLightbox(null));
+  useBackLayer(!!confirmDel, () => setConfirmDel(null));
+  useBackLayer(confirmExport, () => setConfirmExport(false));
 
   /* cargar */
   useEffect(() => {
@@ -2299,7 +2309,9 @@ export default function App({ tripId, tripName, onBack }) {
     else if (k === "diary") { dia = curDiary(); if (!dia) return null; subtitle = dia.date ? `${dparts(dia.date).dow} ${dparts(dia.date).dd} ${dparts(dia.date).mmm}` : "Entrada"; title = "Entrada del diario"; attList = dia.att || []; }
 
     const overlay = { position: "fixed", inset: 0, background: "rgba(20,16,12,0.45)", zIndex: 50, display: "flex", alignItems: "flex-end", justifyContent: "center" };
-    const sheet = { background: C.paper, width: "100%", maxWidth: 480, maxHeight: "90vh", overflowY: "auto", borderTopLeftRadius: 20, borderTopRightRadius: 20 };
+    // Los overlays van en position:fixed, así que el relleno seguro del <body> no
+    // les llega: la barra de gestos taparía el último botón del panel.
+    const sheet = { background: C.paper, width: "100%", maxWidth: 480, maxHeight: "90vh", overflowY: "auto", borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: "var(--safe-bottom)" };
 
     return (
       <div onClick={() => { setEditing(null); setAttErr(""); }} style={overlay}>
@@ -2603,7 +2615,9 @@ export default function App({ tripId, tripName, onBack }) {
 
   return (
     <div style={{ background: C.paper, minHeight: "100vh", maxWidth: 480, margin: "0 auto", fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif", color: C.ink }}>
-      <div style={{ position: "sticky", top: 0, zIndex: 30, background: "rgba(237,241,244,0.92)", backdropFilter: "blur(8px)", borderBottom: `1px solid ${C.line}` }}>
+      {/* paddingTop: la cabecera se pinta también bajo la barra de estado, para que
+          al desplazar el contenido no se vea pasar por detrás del reloj. */}
+      <div style={{ position: "sticky", top: 0, zIndex: 30, background: "rgba(237,241,244,0.92)", backdropFilter: "blur(8px)", borderBottom: `1px solid ${C.line}`, paddingTop: "var(--safe-top)" }}>
         {saveErr && (
           <div className="flex items-center gap-2" style={{ background: C.red, color: "#fff", padding: "7px 14px", fontSize: 12.5, fontWeight: 600 }}>
             <AlertCircle size={15} style={{ flexShrink: 0 }} />
@@ -2631,7 +2645,7 @@ export default function App({ tripId, tripName, onBack }) {
       {drawerOpen && (
         <div onClick={() => setDrawerOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 45, background: "rgba(20,16,12,0.45)" }}>
           <style>{"@keyframes drawerIn{from{transform:translateX(-100%)}to{transform:translateX(0)}}"}</style>
-          <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: 270, maxWidth: "84%", background: C.paper, borderRight: `1px solid ${C.line}`, boxShadow: "2px 0 28px rgba(20,16,12,0.20)", display: "flex", flexDirection: "column", overflowY: "auto", animation: "drawerIn 0.18s ease-out" }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: 270, maxWidth: "84%", background: C.paper, borderRight: `1px solid ${C.line}`, boxShadow: "2px 0 28px rgba(20,16,12,0.20)", display: "flex", flexDirection: "column", overflowY: "auto", animation: "drawerIn 0.18s ease-out", paddingTop: "var(--safe-top)", paddingBottom: "var(--safe-bottom)" }}>
             <div className="flex items-start justify-between" style={{ padding: "18px 16px 14px", borderBottom: `1px solid ${C.line}` }}>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5" style={{ color: "#C9962E", ...mono, fontSize: 11, letterSpacing: 2 }}><Plane size={12} /> WAYNODE</div>
