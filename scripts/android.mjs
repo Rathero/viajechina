@@ -37,9 +37,14 @@ const die = (m, hint) => {
   process.exit(1);
 };
 
-/** Ejecuta un comando heredando la consola, para que los prompts de contraseña funcionen. */
+/* Ejecuta un comando heredando la consola, para que los prompts de contraseña
+   funcionen. Hace falta shell:true por los .cmd de Windows, y entonces la ruta
+   del ejecutable la parte el shell por los espacios ("C:\Program Files\…"),
+   así que se entrecomilla siempre. */
+const quote = (s) => (/\s/.test(s) && !s.startsWith('"') ? `"${s}"` : s);
+
 function run(bin, args, opts = {}) {
-  const res = spawnSync(bin, args, { stdio: "inherit", shell: true, cwd: ROOT, ...opts });
+  const res = spawnSync(quote(bin), args, { stdio: "inherit", shell: true, cwd: ROOT, ...opts });
   if (res.status !== 0) die(`Falló: ${bin} ${args.join(" ")}`);
 }
 
@@ -104,7 +109,7 @@ if (cmd === "fingerprint") {
   console.log("  Escribe la contraseña del keystore y pulsa Enter.");
   console.log("  (No se verá mientras la tecleas; es lo normal.)\n");
 
-  const res = spawnSync(keytoolPath(), ["-list", "-v", "-keystore", `"${KEYSTORE}"`, "-alias", "android"], {
+  const res = spawnSync(quote(keytoolPath()), ["-list", "-v", "-keystore", `"${KEYSTORE}"`, "-alias", "android"], {
     // stdin heredado para poder teclear la contraseña; stdout capturado para leer la huella.
     stdio: ["inherit", "pipe", "inherit"],
     shell: true,

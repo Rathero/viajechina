@@ -185,7 +185,8 @@ function installPackages(jdkPath) {
   const pkgs = ["platform-tools", `platforms;${PLATFORM}`, `build-tools;${BUILD_TOOLS}`];
   say(`Instalando: ${pkgs.join(", ")} (~400 MB)…`);
 
-  execFileSync(sdkmanager, [`--sdk_root=${SDK_PATH}`, ...pkgs], {
+  // Entrecomillado porque con shell:true el intérprete parte la ruta por los espacios.
+  execFileSync(`"${sdkmanager}"`, [`"--sdk_root=${SDK_PATH}"`, ...pkgs], {
     stdio: "inherit",
     shell: process.platform === "win32",
     env: { ...process.env, JAVA_HOME: jdkPath, ANDROID_HOME: SDK_PATH, ANDROID_SDK_ROOT: SDK_PATH },
