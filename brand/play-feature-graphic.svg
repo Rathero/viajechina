@@ -1,0 +1,46 @@
+<!-- Gráfico destacado de Google Play. Tamaño exigido: 1024 × 500 px, PNG o JPG.
+     Exportar a PNG con:  npx svgexport brand/play-feature-graphic.svg brand/play-feature-graphic.png 1024:500
+     Ojo: Play recorta este gráfico en algunos sitios, así que el texto se mantiene
+     lejos de los bordes y no hay nada importante en las esquinas. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0B2239"/>
+      <stop offset="100%" stop-color="#173F63"/>
+    </linearGradient>
+    <radialGradient id="glowJade" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#1CA6A6" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#1CA6A6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowCoral" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#FF5A3C" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#FF5A3C" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1024" height="500" fill="url(#bg)"/>
+  <ellipse cx="880" cy="60" rx="420" ry="300" fill="url(#glowJade)"/>
+  <ellipse cx="90" cy="440" rx="380" ry="260" fill="url(#glowCoral)"/>
+
+  <!-- ruta punteada decorativa -->
+  <path d="M600 400 C 700 340, 700 250, 790 210 S 930 150, 980 90"
+        fill="none" stroke="#FFC857" stroke-opacity="0.45" stroke-width="3" stroke-dasharray="10 12" stroke-linecap="round"/>
+  <circle cx="600" cy="400" r="9" fill="#FF5A3C"/>
+  <circle cx="790" cy="210" r="9" fill="#1CA6A6"/>
+  <circle cx="980" cy="90" r="9" fill="#FFC857"/>
+
+  <!-- marca -->
+  <g transform="translate(72 176)">
+    <circle cx="30" cy="30" r="29" fill="#1CA6A6"/>
+    <path d="M30 9a21 21 0 0 0 0 42M30 9a21 21 0 0 1 0 42M9 30h42M14 19h32M14 41h32"
+          fill="none" stroke="#0B2239" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="40.5" cy="19.5" r="7.5" fill="#FF5A3C" stroke="#fff" stroke-width="3"/>
+  </g>
+
+  <text x="150" y="216" fill="#FFFFFF" font-size="40" font-weight="800" letter-spacing="-1">Waynode</text>
+
+  <text x="72" y="290" fill="#FFFFFF" font-size="52" font-weight="800" letter-spacing="-1.6">Todo tu viaje,</text>
+  <text x="72" y="348" fill="#FFC857" font-size="52" font-weight="800" letter-spacing="-1.6">en una sola app</text>
+
+  <text x="72" y="398" fill="#A9C1D2" font-size="23" font-weight="500">Itinerario · Reservas · Gastos compartidos · Diario</text>
+</svg>

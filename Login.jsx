@@ -7,6 +7,12 @@ const C = { ink: "#0B2239", sub: "#5B6B78", paper: "#EDF1F4", card: "#FFFFFF", r
 // Cuando esté listo, pon esto a true y se mostrará el botón.
 const APPLE_ENABLED = false;
 
+/* La raíz del dominio es la landing pública; la app vive en /app. Todo lo que
+   vuelve de Supabase (OAuth, confirmación de email, recuperación de contraseña)
+   tiene que aterrizar en la app, no en la web comercial.
+   Esta URL debe estar dada de alta en Supabase → Auth → URL Configuration. */
+const APP_URL = () => window.location.origin + "/app";
+
 const GoogleIcon = () => (
   <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
     <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62Z" />
@@ -28,7 +34,7 @@ export default function Login() {
     setErr(""); setInfo("");
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: APP_URL() },
     });
     if (error) setErr(error.message);
   };
@@ -41,7 +47,7 @@ export default function Login() {
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
-          options: { emailRedirectTo: window.location.origin },
+          options: { emailRedirectTo: APP_URL() },
         });
         if (error) throw error;
         // Si la confirmación de email está activada, no hay sesión todavía.
@@ -61,7 +67,7 @@ export default function Login() {
   const forgot = async () => {
     if (!email.trim()) { setErr("Escribe tu email arriba para enviarte el enlace de recuperación."); return; }
     setErr(""); setInfo("");
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin });
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: APP_URL() });
     if (error) setErr(error.message);
     else setInfo("Te hemos enviado un enlace para restablecer tu contraseña.");
   };
@@ -125,6 +131,15 @@ export default function Login() {
           <button onClick={() => { setMode(mode === "signup" ? "login" : "signup"); setErr(""); setInfo(""); }} style={{ color: C.red, fontWeight: 700, fontSize: 13, background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
             {mode === "signup" ? "Inicia sesión" : "Regístrate"}
           </button>
+        </div>
+
+        {/* Los revisores de Play buscan estos enlaces también dentro de la app. */}
+        <div style={{ textAlign: "center", marginTop: 28, color: C.sub, fontSize: 11.5, lineHeight: 1.8 }}>
+          <a href="/privacidad" style={{ color: C.sub }}>Privacidad</a>
+          <span style={{ opacity: 0.5, margin: "0 8px" }}>·</span>
+          <a href="/terminos" style={{ color: C.sub }}>Términos</a>
+          <span style={{ opacity: 0.5, margin: "0 8px" }}>·</span>
+          <a href="/" style={{ color: C.sub }}>Sobre Waynode</a>
         </div>
       </div>
     </div>

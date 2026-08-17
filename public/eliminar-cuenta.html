@@ -4,26 +4,48 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Eliminar tu cuenta — Waynode</title>
+<meta name="description" content="Cómo eliminar tu cuenta de Waynode y todos tus datos, desde la app o por correo." />
+<link rel="canonical" href="https://waynodeapp.com/eliminar-cuenta" />
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
+<meta name="theme-color" content="#0B2239" />
 <style>
-  :root{--ink:#0B2239;--sub:#5B6B78;--paper:#EDF1F4;--card:#fff;--line:#DCE4EA;--accent:#FF5A3C;}
+  :root{--ink:#0B2239;--sub:#5B6B78;--paper:#EDF1F4;--card:#fff;--line:#DCE4EA;--accent:#FF5A3C;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
   *{box-sizing:border-box}
-  body{margin:0;padding:32px 20px 64px;background:var(--paper);color:var(--ink);
-    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.6;}
-  main{max-width:640px;margin:0 auto;background:var(--card);border:1px solid var(--line);
-    border-radius:16px;padding:32px 28px;}
-  h1{font-size:26px;margin:0 0 8px;letter-spacing:-.02em}
-  .lede{color:var(--sub);font-size:15.5px;margin:0 0 26px}
-  h2{font-size:17px;margin:24px 0 8px}
-  p,li{color:#243B52;font-size:15.5px}
-  ol{padding-left:20px}
+  body{margin:0;padding:0 20px 64px;background:var(--paper);color:var(--ink);
+    font-family:var(--sans);line-height:1.65;}
+  .top{max-width:680px;margin:0 auto;padding:22px 0 18px;display:flex;align-items:center;gap:10px}
+  .top a{display:flex;align-items:center;gap:9px;text-decoration:none;color:var(--ink);font-weight:800;font-size:18px;letter-spacing:-.02em}
+  .top .back{margin-left:auto;font-weight:600;font-size:14.5px;color:var(--sub)}
+  main{max-width:680px;margin:0 auto;background:var(--card);border:1px solid var(--line);
+    border-radius:18px;padding:36px 32px;}
+  h1{font-size:28px;margin:0 0 8px;letter-spacing:-.025em}
+  .lede{color:var(--sub);font-size:16.5px;margin:0 0 28px}
+  h2{font-size:18px;margin:28px 0 8px}
+  p,li{color:#243B52;font-size:16px}
+  ol,ul{padding-left:22px}
+  li{margin-bottom:5px}
   a{color:#C2381F}
-  .box{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:14px 0}
-  .warn{background:#FFF4DC;border:1px solid #FFC857;border-radius:12px;padding:14px 16px;margin:16px 0;font-size:15px}
-  .todo{background:#FFF4DC;border:1px solid #FFC857;border-radius:8px;padding:2px 7px;font-weight:700}
-  footer{max-width:640px;margin:18px auto 0;color:var(--sub);font-size:13px;text-align:center}
+  .box{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:14px 0}
+  .warn{background:#FFF4DC;border:1px solid #FFC857;border-radius:12px;padding:16px 18px;margin:20px 0;font-size:15.5px}
+  footer{max-width:680px;margin:20px auto 0;color:var(--sub);font-size:14px;text-align:center}
+  footer a{color:var(--sub)}
+  @media (max-width:560px){main{padding:26px 20px;border-radius:14px}h1{font-size:24px}}
 </style>
 </head>
 <body>
+<div class="top">
+  <a href="/">
+    <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
+      <circle cx="16" cy="16" r="15" fill="#1CA6A6"/>
+      <path d="M16 5a11 11 0 0 0 0 22M16 5a11 11 0 0 1 0 22M5 16h22M8 9.5h16M8 22.5h16" fill="none" stroke="#0B2239" stroke-width="1.6" stroke-linecap="round"/>
+      <circle cx="21.5" cy="10.5" r="4" fill="#FF5A3C" stroke="#fff" stroke-width="1.6"/>
+    </svg>
+    Waynode
+  </a>
+  <a class="back" href="/">‹ Volver</a>
+</div>
+
 <main>
   <h1>Eliminar tu cuenta de Waynode</h1>
   <p class="lede">Puedes borrar tu cuenta y todos tus datos cuando quieras. Hay dos formas de hacerlo.</p>
@@ -31,7 +53,7 @@
   <h2>Desde la aplicación (inmediato)</h2>
   <div class="box">
     <ol>
-      <li>Abre <strong>Waynode</strong> e inicia sesión.</li>
+      <li>Abre <strong><a href="/app">Waynode</a></strong> e inicia sesión.</li>
       <li>En la pantalla <strong>Mis viajes</strong>, baja hasta <strong>Tu cuenta</strong>.</li>
       <li>Pulsa <strong>Eliminar mi cuenta</strong> y escribe ELIMINAR para confirmar.</li>
     </ol>
@@ -40,9 +62,10 @@
 
   <h2>Por correo (si ya no tienes la app)</h2>
   <div class="box">
-    <p style="margin:0">Escríbenos a <span class="todo">[CORREO DE CONTACTO]</span> desde la
-       <strong>misma dirección de correo con la que te registraste</strong>, indicando que quieres
-       eliminar tu cuenta. La borraremos en un plazo máximo de 30 días y te lo confirmaremos.</p>
+    <p style="margin:0">Escríbenos a <a href="mailto:waynodeapp@gmail.com">waynodeapp@gmail.com</a>
+       desde la <strong>misma dirección de correo con la que te registraste</strong>, indicando que
+       quieres eliminar tu cuenta. La borraremos en un plazo máximo de 30 días y te lo
+       confirmaremos.</p>
   </div>
 
   <h2>Qué se borra</h2>
@@ -54,16 +77,22 @@
     <li>Las entradas de tu diario de viaje.</li>
     <li>Las invitaciones que hayas enviado o recibido.</li>
   </ul>
-  <p>No conservamos ninguna copia de tus datos ni periodo de retención posterior.</p>
+  <p>No conservamos ninguna copia de tus datos ni aplicamos ningún periodo de retención posterior.</p>
+
+  <h2>Qué pasa con los viajes que has compartido</h2>
+  <p>Si eras el <strong>dueño</strong> de un viaje compartido, ese viaje se borra para todos, porque
+     el contenido es único y te pertenece. Si solo eras <strong>invitado</strong>, dejas de tener
+     acceso pero el viaje sigue existiendo para su dueño.</p>
 
   <div class="warn">
     <strong>Antes de borrar:</strong> esta acción no se puede deshacer. Si quieres conservar tus
     viajes, ábrelos en la app y usa <strong>Exportar a PDF</strong> para guardarte una copia.
   </div>
 
-  <p style="color:var(--sub);font-size:14px">Consulta también nuestra
-     <a href="/privacidad.html">política de privacidad</a>.</p>
+  <p style="color:var(--sub);font-size:15px">Consulta también la
+     <a href="/privacidad">política de privacidad</a> y los
+     <a href="/terminos">términos de uso</a>.</p>
 </main>
-<footer>Waynode · <a href="/">Volver a la aplicación</a></footer>
+<footer>Waynode · <a href="/">Inicio</a> · <a href="/privacidad">Política de privacidad</a> · <a href="/terminos">Términos de uso</a></footer>
 </body>
 </html>

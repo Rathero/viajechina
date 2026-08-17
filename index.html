@@ -1,23 +1,1001 @@
 <!doctype html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
-    <title>Waynode — organiza tus viajes</title>
-    <meta name="description" content="Organiza tu viaje: itinerario día a día, reservas, gastos compartidos y diario de viaje." />
+<title>Waynode — organiza tus viajes: itinerario, gastos y reservas en una app</title>
+<meta name="description" content="Waynode reúne el itinerario día a día, las reservas, los gastos compartidos, la maleta y el diario de tu viaje en una sola app. Gratis, sin anuncios y sin rastreadores." />
+<link rel="canonical" href="https://waynodeapp.com/" />
+<meta name="theme-color" content="#0B2239" />
 
-    <!-- PWA: necesario para instalar y para empaquetar como app Android (TWA). -->
-    <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#0B2239" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
-    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Waynode" />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/main.jsx"></script>
-  </body>
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Waynode" />
+<meta property="og:locale" content="es_ES" />
+<meta property="og:url" content="https://waynodeapp.com/" />
+<meta property="og:title" content="Waynode — todo tu viaje, en una sola app" />
+<meta property="og:description" content="Itinerario día a día, reservas, gastos compartidos, maleta y diario. Gratis, sin anuncios y sin rastreadores." />
+<meta property="og:image" content="https://waynodeapp.com/icons/icon-512.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Waynode — todo tu viaje, en una sola app" />
+<meta name="twitter:description" content="Itinerario día a día, reservas, gastos compartidos, maleta y diario." />
+<meta name="twitter:image" content="https://waynodeapp.com/icons/icon-512.png" />
+
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+<link rel="manifest" href="/manifest.webmanifest" />
+
+<style>
+/* ============================================================
+   Landing pública de Waynode.
+   HTML y CSS a pelo, sin dependencias ni fuentes externas: carga
+   instantánea y nada que rastree al visitante.
+   Paleta idéntica a la de la app (App.jsx → const C).
+   ============================================================ */
+:root{
+  --ink:#0B2239; --ink-2:#132F4C; --ink-3:#1B3D5F;
+  --sub:#5B6B78; --paper:#EDF1F4; --card:#fff; --line:#DCE4EA;
+  --coral:#FF5A3C; --coral-deep:#E23B1E; --jade:#1CA6A6; --gold:#FFC857;
+  --mist:#9DB2C0;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --wrap:1120px;
+  --r:16px;
+  --shadow:0 1px 2px rgba(11,34,57,.05),0 12px 32px -12px rgba(11,34,57,.18);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+body{
+  margin:0;background:var(--card);color:var(--ink);
+  font-family:var(--sans);font-size:17px;line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+img{max-width:100%;display:block}
+a{color:var(--coral-deep)}
+h1,h2,h3{letter-spacing:-.025em;line-height:1.1;margin:0}
+p{margin:0}
+.wrap{max-width:var(--wrap);margin:0 auto;padding:0 24px}
+.skip{position:absolute;left:-9999px}
+.skip:focus{left:16px;top:16px;z-index:99;background:#fff;color:var(--ink);padding:10px 16px;border-radius:10px}
+
+/* ---------- botones ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:9px;
+  border-radius:12px;padding:14px 24px;font-size:16px;font-weight:700;
+  text-decoration:none;border:1px solid transparent;cursor:pointer;
+  transition:transform .12s ease,box-shadow .12s ease,background .12s ease;
+  white-space:nowrap;
+}
+.btn:hover{transform:translateY(-1px)}
+.btn-primary{background:var(--coral);color:#fff;box-shadow:0 8px 20px -8px rgba(255,90,60,.8)}
+.btn-primary:hover{background:var(--coral-deep)}
+.btn-ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+.btn-ghost:hover{background:var(--paper)}
+.btn-onDark{background:rgba(255,255,255,.08);color:#EAF2F7;border-color:rgba(255,255,255,.22)}
+.btn-onDark:hover{background:rgba(255,255,255,.15)}
+.btn-sm{padding:10px 18px;font-size:14.5px}
+
+/* ---------- cabecera ---------- */
+header{
+  position:sticky;top:0;z-index:50;
+  background:rgba(11,34,57,.88);backdrop-filter:blur(10px);
+  border-bottom:1px solid rgba(255,255,255,.09);
+}
+.nav{display:flex;align-items:center;gap:28px;height:66px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:#fff;font-weight:800;font-size:19px;letter-spacing:-.02em}
+.brand .mark{width:30px;height:30px;flex:0 0 auto}
+.nav-links{display:flex;gap:26px;margin-left:auto}
+.nav-links a{color:#C6D6E2;text-decoration:none;font-size:15px;font-weight:600}
+.nav-links a:hover{color:#fff}
+.nav .btn{margin-left:auto}
+.nav-links + .btn{margin-left:0}
+@media (max-width:860px){.nav-links{display:none}}
+
+/* ---------- hero ---------- */
+.hero{
+  background:
+    radial-gradient(900px 420px at 78% -10%,rgba(28,166,166,.30),transparent 60%),
+    radial-gradient(700px 380px at 8% 0%,rgba(255,90,60,.22),transparent 62%),
+    linear-gradient(180deg,var(--ink) 0%,var(--ink-2) 100%);
+  color:#EAF2F7;padding:76px 0 0;overflow:hidden;
+}
+.hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  font-family:var(--mono);font-size:12px;letter-spacing:2.5px;color:var(--gold);
+  text-transform:uppercase;font-weight:700;margin-bottom:20px;
+}
+.hero h1{font-size:60px;font-weight:800;color:#fff}
+.hero h1 em{font-style:normal;color:var(--gold)}
+.hero-lede{font-size:19.5px;color:#B9CDDB;margin-top:20px;max-width:35ch}
+.hero-cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:32px}
+.hero-note{
+  display:flex;flex-wrap:wrap;gap:8px 20px;margin-top:26px;
+  font-size:14px;color:var(--mist);
+}
+.hero-note span{display:inline-flex;align-items:center;gap:7px}
+.hero-note svg{color:var(--jade);flex:0 0 auto}
+.hero-art{display:flex;justify-content:center;padding-bottom:20px}
+@media (max-width:940px){
+  .hero{padding-top:52px}
+  .hero-grid{grid-template-columns:1fr;gap:44px;text-align:center}
+  .hero h1{font-size:42px}
+  .hero-lede{margin-left:auto;margin-right:auto}
+  .hero-cta,.hero-note{justify-content:center}
+}
+@media (max-width:420px){.hero h1{font-size:34px}.hero-lede{font-size:17px}}
+
+/* ---------- maqueta de móvil ---------- */
+.phone{
+  width:286px;flex:0 0 auto;
+  border-radius:38px;padding:9px;
+  background:linear-gradient(160deg,#33475A,#0d1c28);
+  box-shadow:0 40px 80px -30px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.07);
+}
+.phone-screen{
+  position:relative;border-radius:30px;overflow:hidden;background:var(--paper);
+  height:572px;display:flex;flex-direction:column;
+}
+.phone-notch{
+  position:absolute;top:8px;left:50%;transform:translateX(-50%);
+  width:86px;height:20px;border-radius:99px;background:#0d1c28;z-index:5;
+}
+.ph-status{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:9px 18px 3px;font-family:var(--mono);font-size:10.5px;color:var(--sub);
+}
+.ph-bar{
+  display:flex;align-items:center;gap:9px;padding:7px 12px 9px;
+  border-bottom:1px solid var(--line);background:rgba(237,241,244,.94);
+}
+.ph-burger{width:28px;height:28px;border-radius:8px;background:#fff;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--ink)}
+.ph-title{display:flex;align-items:center;gap:6px;font-weight:800;font-size:13.5px}
+.ph-title svg{color:var(--coral)}
+.ph-back{margin-left:auto;font-size:10.5px;color:var(--sub);font-weight:600}
+.ph-body{flex:1;overflow:hidden;padding:10px 12px 0}
+.ph-card{background:#fff;border:1px solid var(--line);border-radius:13px;padding:11px 12px;margin-bottom:8px}
+.ph-row{display:flex;gap:8px;margin-bottom:8px}
+.ph-row > *{flex:1;margin-bottom:0}
+.ph-lbl{color:var(--sub);font-size:9.5px;font-weight:700}
+.ph-num{font-size:26px;font-weight:800;line-height:1;letter-spacing:-.03em}
+.ph-mini{font-size:8.5px;color:var(--sub)}
+.ph-hero{
+  background:var(--ink);color:#EAF2F7;border-radius:14px;
+  padding:14px 14px 13px;margin-bottom:8px;
+}
+.ph-hero .tag{font-family:var(--mono);font-size:8px;letter-spacing:2px;color:var(--gold);display:flex;align-items:center;gap:5px;margin-bottom:5px}
+.ph-hero h4{margin:0;font-size:25px;font-weight:800;letter-spacing:-.04em;line-height:1.05}
+.ph-hero .sub{color:var(--mist);font-size:11px;font-weight:600;margin-top:2px}
+.ph-hero .meta{font-family:var(--mono);font-size:9px;color:var(--mist);margin-top:10px}
+.ph-sect{display:flex;align-items:center;gap:6px;font-weight:700;font-size:10.5px;margin-bottom:8px}
+.ph-sect svg{color:var(--coral)}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center}
+.cal b{font-size:7.5px;color:var(--sub);font-weight:600;padding-bottom:2px}
+.cal i{font-style:normal;font-size:9px;padding:3px 0;border-radius:4px;color:var(--sub)}
+.cal i.on{color:#fff;font-weight:700}
+.legend{display:flex;flex-wrap:wrap;gap:4px 9px;margin-top:8px;padding-top:7px;border-top:1px solid var(--line);font-size:8.5px;color:var(--sub)}
+.legend span{display:inline-flex;align-items:center;gap:4px}
+.dot{width:8px;height:8px;border-radius:3px;flex:0 0 auto}
+.ph-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.ph-stats .ph-card{text-align:center;padding:9px 4px;margin:0}
+.ph-stats .v{font-size:14px;font-weight:800}
+
+/* ruta */
+.tl{display:flex;gap:9px}
+.tl-line{width:13px;display:flex;flex-direction:column;align-items:center;padding-top:14px}
+.tl-dot{width:11px;height:11px;border-radius:99px;box-shadow:0 0 0 3px var(--paper)}
+.tl-rail{width:2px;flex:1;background:var(--line);margin-top:2px}
+.tl-body{flex:1;min-width:0}
+.city{display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid var(--line);border-radius:11px;padding:8px 11px;margin-bottom:7px}
+.city .n{font-weight:800;font-size:12.5px}
+.city .d{font-family:var(--mono);font-size:8.5px;font-weight:700;margin-left:6px}
+.city .c{font-family:var(--mono);font-size:8.5px;color:var(--sub)}
+.day{background:#fff;border:1px solid var(--line);border-radius:11px;padding:9px 10px;margin-bottom:7px}
+.day-h{display:flex;align-items:center;gap:8px}
+.datebox{width:32px;height:32px;border-radius:8px;background:var(--paper);display:flex;flex-direction:column;align-items:center;justify-content:center;flex:0 0 auto}
+.datebox b{font-family:var(--mono);font-size:12px;line-height:1}
+.datebox i{font-style:normal;font-size:7px;color:var(--sub);text-transform:uppercase}
+.day-h .dow{font-size:7.5px;color:var(--sub);text-transform:uppercase;letter-spacing:.9px;font-weight:700}
+.day-h .t{font-weight:700;font-size:11.5px}
+.acts{margin-top:9px;display:flex;flex-direction:column;gap:7px}
+.act{display:flex;align-items:flex-start;gap:6px}
+.tick{width:13px;height:13px;border-radius:4px;border:1.5px solid var(--line);flex:0 0 auto;margin-top:1px}
+.tick.on{background:var(--jade);border-color:var(--jade);display:flex;align-items:center;justify-content:center}
+.act .hh{font-family:var(--mono);font-size:8.5px;color:var(--sub);width:26px;flex:0 0 auto;margin-top:1px}
+.act .x{font-size:10px;line-height:1.35}
+.chip{display:inline-block;border-radius:3px;padding:0 4px;font-size:7px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;vertical-align:middle;margin-left:4px}
+.price{font-family:var(--mono);font-size:8.5px;color:var(--coral-deep);font-weight:700;margin-top:2px}
+
+/* gastos */
+.donut{width:118px;height:118px;border-radius:99px;margin:6px auto 0;position:relative;
+  background:conic-gradient(#0B2239 0 31%,#1CA6A6 31% 55%,#FF5A3C 55% 73%,#C9962E 73% 88%,#3D6FA6 88% 100%)}
+.donut::after{content:"";position:absolute;inset:30px;border-radius:99px;background:#fff}
+.bar{height:6px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:9px}
+.bar > i{display:block;height:100%;background:var(--jade);border-radius:99px}
+.bal{display:flex;align-items:center;justify-content:space-between;font-size:10px;padding:5px 0;border-top:1px solid var(--line)}
+.bal:first-of-type{border-top:0}
+
+/* reservas */
+.bk{display:flex;gap:8px;align-items:flex-start;background:#fff;border:1px solid var(--line);border-radius:11px;padding:9px 10px;margin-bottom:7px}
+.bk-ic{width:28px;height:28px;border-radius:8px;background:var(--paper);display:flex;align-items:center;justify-content:center;flex:0 0 auto;color:var(--ink)}
+.bk .n{font-size:11px;font-weight:700}
+.bk .m{font-family:var(--mono);font-size:8.5px;color:var(--sub);margin-top:1px}
+.badge{display:inline-block;border-radius:99px;padding:1px 6px;font-size:7.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;margin-right:4px;margin-top:4px}
+.b-jade{background:rgba(28,166,166,.14);color:#12807f}
+.b-gold{background:rgba(255,200,87,.24);color:#9a6f06}
+.b-line{background:var(--paper);color:var(--sub)}
+
+.filters{display:flex;gap:5px;margin-bottom:9px;flex-wrap:wrap}
+.filters span{font-size:8.5px;font-weight:700;padding:3px 8px;border-radius:99px;background:#fff;border:1px solid var(--line);color:var(--sub)}
+.filters span.on{background:var(--ink);border-color:var(--ink);color:#fff}
+
+/* ---------- secciones ---------- */
+section{padding:88px 0}
+.sec-head{max-width:640px;margin:0 auto 52px;text-align:center}
+.kicker{font-family:var(--mono);font-size:12px;letter-spacing:2.5px;text-transform:uppercase;font-weight:700;color:var(--coral);margin-bottom:14px}
+.sec-head h2{font-size:40px;font-weight:800}
+.sec-head p{color:var(--sub);font-size:18px;margin-top:16px}
+@media (max-width:600px){section{padding:64px 0}.sec-head h2{font-size:30px}.sec-head p{font-size:16.5px}}
+
+.band{background:var(--paper);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+
+/* tira de confianza */
+.trust{padding:26px 0;background:var(--ink-2);border-top:1px solid rgba(255,255,255,.08)}
+.trust ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+.trust li{display:flex;align-items:center;gap:10px;color:#C6D6E2;font-size:14.5px;font-weight:600}
+.trust svg{color:var(--gold);flex:0 0 auto}
+@media (max-width:820px){.trust ul{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:440px){.trust ul{grid-template-columns:1fr}}
+
+/* rejilla de funciones */
+.feats{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+@media (max-width:1000px){.feats{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:560px){.feats{grid-template-columns:1fr}}
+.feat{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  padding:24px 22px 26px;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;
+}
+.feat:hover{transform:translateY(-3px);box-shadow:var(--shadow);border-color:#C9D6E0}
+.feat-ic{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:16px}
+.feat h3{font-size:17.5px;font-weight:800;margin-bottom:8px}
+.feat p{color:var(--sub);font-size:15px;line-height:1.55}
+
+/* bloque a dos columnas */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center}
+.split.rev .split-art{order:-1}
+@media (max-width:940px){.split{grid-template-columns:1fr;gap:44px}.split.rev .split-art{order:0}}
+.split h2{font-size:36px;font-weight:800}
+.split p.lede{color:var(--sub);font-size:18px;margin-top:18px}
+.checks{list-style:none;padding:0;margin:26px 0 0;display:flex;flex-direction:column;gap:14px}
+.checks li{display:flex;gap:12px;align-items:flex-start;font-size:16px}
+.checks .ci{width:22px;height:22px;border-radius:99px;background:rgba(28,166,166,.14);color:var(--jade);display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-top:2px}
+.checks b{display:block;font-weight:700}
+.checks span{color:var(--sub);font-size:15px}
+@media (max-width:600px){.split h2{font-size:28px}}
+
+/* tarjeta de compartir */
+.share-card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:26px;box-shadow:var(--shadow)}
+.invite{display:flex;align-items:center;gap:12px;padding:14px;border:1px solid var(--line);border-radius:13px;margin-bottom:12px;background:var(--paper)}
+.avatar{width:38px;height:38px;border-radius:99px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px;flex:0 0 auto}
+.invite .who{font-weight:700;font-size:15px}
+.invite .st{font-size:13px;color:var(--sub)}
+.invite .tagr{margin-left:auto;font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;padding:4px 10px;border-radius:99px}
+
+/* pasos */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;counter-reset:s}
+@media (max-width:860px){.steps{grid-template-columns:1fr}}
+.step{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:28px 24px;position:relative}
+.step::before{
+  counter-increment:s;content:counter(s);
+  display:flex;align-items:center;justify-content:center;
+  width:36px;height:36px;border-radius:99px;background:var(--ink);color:var(--gold);
+  font-family:var(--mono);font-weight:700;font-size:16px;margin-bottom:16px;
+}
+.step h3{font-size:19px;font-weight:800;margin-bottom:9px}
+.step p{color:var(--sub);font-size:15.5px}
+
+/* galería de pantallas */
+.gallery{display:flex;gap:26px;justify-content:center;flex-wrap:wrap}
+.shot{text-align:center}
+.shot .cap{margin-top:16px}
+.shot .cap b{display:block;font-size:16px;font-weight:800}
+.shot .cap span{color:var(--sub);font-size:14.5px}
+@media (max-width:980px){
+  .gallery{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;
+    padding:4px 24px 20px;margin:0 -24px;scroll-snap-type:x mandatory}
+  .shot{scroll-snap-align:center}
+}
+
+/* privacidad */
+.dark{background:linear-gradient(180deg,var(--ink) 0%,var(--ink-2) 100%);color:#EAF2F7}
+.dark .kicker{color:var(--gold)}
+.dark .sec-head p{color:#B9CDDB}
+.privacy-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:8px}
+@media (max-width:860px){.privacy-grid{grid-template-columns:1fr}}
+.pcard{background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.11);border-radius:var(--r);padding:24px 22px}
+.pcard h3{font-size:17px;font-weight:800;margin-bottom:8px;display:flex;align-items:center;gap:9px}
+.pcard h3 svg{color:var(--jade)}
+.pcard p{color:#AFC4D3;font-size:15px}
+.dark-links{text-align:center;margin-top:34px;font-size:15px;color:#B9CDDB}
+.dark-links a{color:#fff;text-decoration:underline;text-underline-offset:3px;margin:0 10px}
+
+/* descarga */
+.get{display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:760px;margin:0 auto}
+@media (max-width:700px){.get{grid-template-columns:1fr}}
+.get-card{border:1px solid var(--line);border-radius:var(--r);padding:26px 24px;background:var(--card);display:flex;flex-direction:column}
+.get-card h3{font-size:19px;font-weight:800;margin-bottom:8px}
+.get-card p{color:var(--sub);font-size:15px;flex:1;margin-bottom:20px}
+.play-badge{
+  display:inline-flex;align-items:center;gap:12px;background:var(--ink);color:#fff;
+  border-radius:12px;padding:11px 20px;text-decoration:none;font-weight:600;
+}
+.play-badge small{display:block;font-size:10.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--mist)}
+.play-badge strong{display:block;font-size:17px;font-weight:800;letter-spacing:-.02em}
+.play-badge[aria-disabled="true"]{opacity:.55;cursor:default}
+
+/* faq */
+.faq{max-width:760px;margin:0 auto}
+.faq details{border-bottom:1px solid var(--line)}
+.faq summary{
+  list-style:none;cursor:pointer;padding:22px 40px 22px 0;position:relative;
+  font-weight:700;font-size:17.5px;
+}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{
+  content:"";position:absolute;right:8px;top:50%;width:10px;height:10px;
+  border-right:2px solid var(--sub);border-bottom:2px solid var(--sub);
+  transform:translateY(-70%) rotate(45deg);transition:transform .18s ease;
+}
+.faq details[open] summary::after{transform:translateY(-30%) rotate(-135deg)}
+.faq p{color:var(--sub);font-size:16px;padding:0 0 22px}
+
+/* cta final */
+.cta{
+  background:radial-gradient(700px 300px at 50% 0%,rgba(28,166,166,.28),transparent 65%),var(--ink);
+  color:#fff;text-align:center;
+}
+.cta h2{font-size:42px;font-weight:800}
+.cta p{color:#B9CDDB;font-size:19px;margin:18px auto 32px;max-width:46ch}
+@media (max-width:600px){.cta h2{font-size:30px}.cta p{font-size:17px}}
+
+/* pie */
+footer{background:var(--ink);color:#8FA6B8;padding:52px 0 40px;border-top:1px solid rgba(255,255,255,.09);font-size:14.5px}
+.foot{display:flex;justify-content:space-between;gap:30px;flex-wrap:wrap;align-items:flex-start}
+.foot .brand{margin-bottom:12px}
+.foot-links{display:flex;gap:26px;flex-wrap:wrap}
+.foot-links a{color:#C6D6E2;text-decoration:none}
+.foot-links a:hover{text-decoration:underline}
+.foot-legal{margin-top:30px;padding-top:22px;border-top:1px solid rgba(255,255,255,.09);font-size:13.5px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<a class="skip" href="#contenido">Saltar al contenido</a>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="/">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
+        <circle cx="16" cy="16" r="15" fill="#1CA6A6"/>
+        <path d="M16 5a11 11 0 0 0 0 22M16 5a11 11 0 0 1 0 22M5 16h22M8 9.5h16M8 22.5h16" fill="none" stroke="#0B2239" stroke-width="1.6" stroke-linecap="round"/>
+        <circle cx="21.5" cy="10.5" r="4" fill="#FF5A3C" stroke="#fff" stroke-width="1.6"/>
+      </svg>
+      Waynode
+    </a>
+    <nav class="nav-links">
+      <a href="#funciones">Funciones</a>
+      <a href="#grupo">Viajes en grupo</a>
+      <a href="#pantallas">Pantallas</a>
+      <a href="#privacidad">Privacidad</a>
+      <a href="#faq">Preguntas</a>
+    </nav>
+    <a class="btn btn-primary btn-sm" href="/app">Abrir la app</a>
+  </div>
+</header>
+
+<main id="contenido">
+
+  <!-- ============ HERO ============ -->
+  <div class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <div class="eyebrow">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.8 19.2 16 11l3.5-3.5a2.1 2.1 0 0 0-3-3L13 8 4.8 6.2a.5.5 0 0 0-.5.8l3.9 4.3-2.1 2.1-1.9-.4a.5.5 0 0 0-.5.8L6 17l2.2 2.3a.5.5 0 0 0 .8-.5l-.4-1.9 2.1-2.1 4.3 3.9a.5.5 0 0 0 .8-.5Z"/></svg>
+          Planificador de viajes
+        </div>
+        <h1>Todo tu viaje,<br />en <em>una sola app</em>.</h1>
+        <p class="hero-lede">
+          Itinerario día a día, reservas, gastos compartidos, maleta y diario.
+          Se acabaron las hojas de cálculo, las notas sueltas y los PDF perdidos
+          en el correo.
+        </p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="/app">
+            Empezar gratis
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </a>
+          <a class="btn btn-onDark" href="#funciones">Ver qué hace</a>
+        </div>
+        <div class="hero-note">
+          <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> Gratis</span>
+          <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> Sin anuncios ni rastreadores</span>
+          <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> Móvil y ordenador</span>
+        </div>
+      </div>
+
+      <div class="hero-art">
+        <!-- Maqueta: pantalla «Resumen» -->
+        <div class="phone" role="img" aria-label="Pantalla Resumen de Waynode: viaje «Japón en 14 días», cuenta atrás, gastos y calendario por ciudad.">
+          <div class="phone-screen">
+            <div class="phone-notch"></div>
+            <div class="ph-status"><span>9:41</span><span>▮▮▮ ▾ 100%</span></div>
+            <div class="ph-bar">
+              <span class="ph-burger"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></span>
+              <span class="ph-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> Resumen</span>
+              <span class="ph-back">‹ Mis viajes</span>
+            </div>
+            <div class="ph-body">
+              <div class="ph-hero">
+                <div class="tag"><svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5Z"/></svg> WAYNODE</div>
+                <h4>Japón en 14 días</h4>
+                <div class="sub">Tokio → Kioto</div>
+                <div class="meta">3 abr – 16 abr &nbsp;|&nbsp; 14 días · 4 paradas</div>
+              </div>
+              <div class="ph-row">
+                <div class="ph-card">
+                  <div class="ph-lbl">Faltan</div>
+                  <div class="ph-num" style="color:var(--coral)">38<span style="font-size:10px;color:var(--sub);font-weight:600;margin-left:3px">días</span></div>
+                </div>
+                <div class="ph-card">
+                  <div class="ph-lbl">Gastado</div>
+                  <div class="ph-num" style="font-size:19px">3.240 €</div>
+                  <div class="ph-mini">18 gastos</div>
+                </div>
+              </div>
+              <div class="ph-card">
+                <div class="ph-sect"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> Calendario</div>
+                <div class="cal">
+                  <b>L</b><b>M</b><b>X</b><b>J</b><b>V</b><b>S</b><b>D</b>
+                  <i></i><i></i><i class="on" style="background:#0B2239">3</i><i class="on" style="background:#0B2239">4</i><i class="on" style="background:#0B2239">5</i><i class="on" style="background:#0B2239">6</i><i class="on" style="background:#0B2239">7</i>
+                  <i class="on" style="background:#1CA6A6">8</i><i class="on" style="background:#1CA6A6">9</i><i class="on" style="background:#1CA6A6">10</i><i class="on" style="background:#C9962E">11</i><i class="on" style="background:#C9962E">12</i><i class="on" style="background:#C9962E">13</i><i class="on" style="background:#C9962E">14</i>
+                  <i class="on" style="background:#FF5A3C">15</i><i class="on" style="background:#FF5A3C">16</i><i>17</i><i>18</i><i>19</i><i>20</i><i>21</i>
+                </div>
+                <div class="legend">
+                  <span><i class="dot" style="background:#0B2239"></i>Tokio</span>
+                  <span><i class="dot" style="background:#1CA6A6"></i>Hakone</span>
+                  <span><i class="dot" style="background:#C9962E"></i>Kioto</span>
+                  <span><i class="dot" style="background:#FF5A3C"></i>Osaka</span>
+                </div>
+              </div>
+              <div class="ph-stats">
+                <div class="ph-card"><div class="v">7/9</div><div class="ph-lbl">Reservas</div></div>
+                <div class="ph-card"><div class="v">22/30</div><div class="ph-lbl">Equipaje</div></div>
+                <div class="ph-card"><div class="v">12/24</div><div class="ph-lbl">Ruta</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="trust">
+      <div class="wrap">
+        <ul>
+          <li><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5Z"/></svg> Tus datos no se venden</li>
+          <li><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 3 14h9l-1 8 10-12h-9Z"/></svg> Cero publicidad</li>
+          <li><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11h-6"/></svg> Viajes compartidos</li>
+          <li><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg> Exporta todo a PDF</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ FUNCIONES ============ -->
+  <section id="funciones">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="kicker">Ocho pantallas, un viaje</div>
+        <h2>Lo que antes estaba en seis sitios</h2>
+        <p>Cada viaje que creas en Waynode trae estas secciones. Usas las que necesites y las demás se quedan quietas.</p>
+      </div>
+
+      <div class="feats">
+        <article class="feat">
+          <div class="feat-ic" style="background:rgba(255,90,60,.12);color:#FF5A3C">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          </div>
+          <h3>Resumen</h3>
+          <p>La foto completa: cuenta atrás para salir, calendario con cada día pintado del color de la ciudad donde duermes y cuánto llevas gastado.</p>
+        </article>
+
+        <article class="feat">
+          <div class="feat-ic" style="background:rgba(28,166,166,.13);color:#1CA6A6">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          </div>
+          <h3>Ruta</h3>
+          <p>Paradas, días y actividades con hora, precio y categoría. ¿Se cae un plan? Arrastras la actividad a otro día y ya está.</p>
+        </article>
+
+        <article class="feat">
+          <div class="feat-ic" style="background:rgba(201,150,46,.15);color:#C9962E">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H6a2 2 0 0 1 0-4h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
+          </div>
+          <h3>Gastos</h3>
+          <p>Dos monedas con su cambio, presupuesto con barra de progreso, reparto por categorías y quién pagó cada cosa. El balance, siempre al día.</p>
+        </article>
+
+        <article class="feat">
+          <div class="feat-ic" style="background:rgba(61,111,166,.13);color:#3D6FA6">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M9 13h6M9 17h6"/></svg>
+          </div>
+          <h3>Reservas</h3>
+          <p>Vuelos, trenes, hoteles y entradas, cada uno con su localizador, su precio y su PDF adjunto. Marcado como reservado y pagado.</p>
+        </article>
+
+        <article class="feat">
+          <div class="feat-ic" style="background:rgba(126,91,166,.13);color:#7E5BA6">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 12v5M14 12v5"/></svg>
+          </div>
+          <h3>Maleta</h3>
+          <p>La lista de equipaje que se va tachando sola mientras metes cosas. Nunca más el cargador encima de la cama.</p>
+        </article>
+
+        <article class="feat">
+          <div class="feat-ic" style="background:rgba(46,143,99,.13);color:#2E8F63">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 7 2 2 4-4M3 17l2 2 4-4M13 6h8M13 12h8M13 18h8"/></svg>
+          </div>
+          <h3>Listas</h3>
+          <p>Checklists para lo de antes de salir: visados, seguro, vacunas, cambio de moneda, avisar al banco. Lo que se olvida siempre.</p>
+        </article>
+
+        <article class="feat">
+          <div class="feat-ic" style="background:rgba(184,74,110,.13);color:#B84A6E">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/></svg>
+          </div>
+          <h3>Diario</h3>
+          <p>Escribe cómo ha ido el día y añade fotos. El viaje contado mientras pasa, no seis meses después cuando ya no te acuerdas.</p>
+        </article>
+
+        <article class="feat">
+          <div class="feat-ic" style="background:rgba(11,34,57,.09);color:#0B2239">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>
+          </div>
+          <h3>Info</h3>
+          <p>Enchufes, wifi, tarjetas que funcionan, propinas, teléfonos de emergencia. Lo que siempre se busca a las tres de la mañana.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ VIAJES EN GRUPO ============ -->
+  <section id="grupo" class="band">
+    <div class="wrap split">
+      <div>
+        <div class="kicker">Viajes en grupo</div>
+        <h2>Un viaje, todos dentro</h2>
+        <p class="lede">
+          Invita por correo a quien viaja contigo. Cuando acepta, entra al
+          <strong>mismo viaje</strong> y lo edita como si fuera suyo: la ruta, los días,
+          las reservas, los gastos. Una sola copia, sin duplicados ni capturas por WhatsApp.
+        </p>
+        <ul class="checks">
+          <li>
+            <span class="ci"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span><b>Invitación por email</b><span>La otra persona la ve al entrar y decide si acepta.</span></span>
+          </li>
+          <li>
+            <span class="ci"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span><b>Todos editan lo mismo</b><span>Si alguien mueve una actividad, los demás la ven movida.</span></span>
+          </li>
+          <li>
+            <span class="ci"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span><b>Quién pagó qué</b><span>Cada gasto lleva su pagador y el balance se calcula solo.</span></span>
+          </li>
+          <li>
+            <span class="ci"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span><b>El control sigue siendo tuyo</b><span>Quitas el acceso cuando quieras; borrar el viaje solo puede su dueño.</span></span>
+          </li>
+        </ul>
+      </div>
+
+      <div class="split-art">
+        <div class="share-card">
+          <div style="font-weight:800;font-size:15px;margin-bottom:16px;display:flex;align-items:center;gap:9px">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF5A3C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
+            Compartir «Japón en 14 días»
+          </div>
+          <div class="invite">
+            <span class="avatar" style="background:#1CA6A6">F</span>
+            <span><span class="who">Fátima</span><span class="st">fatima@ejemplo.com</span></span>
+            <span class="tagr" style="background:rgba(28,166,166,.15);color:#12807f">Aceptada</span>
+          </div>
+          <div class="invite">
+            <span class="avatar" style="background:#3D6FA6">M</span>
+            <span><span class="who">Marta</span><span class="st">marta@ejemplo.com</span></span>
+            <span class="tagr" style="background:rgba(255,200,87,.28);color:#9a6f06">Pendiente</span>
+          </div>
+          <div class="invite" style="background:#fff;border-style:dashed">
+            <span class="avatar" style="background:var(--paper);color:var(--sub)">+</span>
+            <span><span class="who" style="color:var(--sub)">Invitar por correo…</span></span>
+          </div>
+          <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line)">
+            <div style="font-size:13px;color:var(--sub);font-weight:700;margin-bottom:10px">BALANCE DEL VIAJE</div>
+            <div style="display:flex;justify-content:space-between;font-size:15px;margin-bottom:6px"><span>Fátima ha pagado</span><b>1.980,00 €</b></div>
+            <div style="display:flex;justify-content:space-between;font-size:15px;margin-bottom:12px"><span>Rubén ha pagado</span><b>1.260,50 €</b></div>
+            <div style="background:rgba(28,166,166,.1);border-radius:10px;padding:11px 14px;font-size:14.5px">
+              Rubén le debe a Fátima <b style="color:#12807f">359,75 €</b>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PANTALLAS ============ -->
+  <section id="pantallas">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="kicker">Así se ve</div>
+        <h2>Pensada para el móvil, de verdad</h2>
+        <p>Pantallas grandes, pocos toques y todo a una mano. Y si prefieres el ordenador, es la misma web.</p>
+      </div>
+    </div>
+
+    <div class="wrap">
+      <div class="gallery">
+
+        <!-- Ruta -->
+        <div class="shot">
+          <div class="phone" role="img" aria-label="Pantalla Ruta: paradas del viaje con sus días y actividades.">
+            <div class="phone-screen">
+              <div class="phone-notch"></div>
+              <div class="ph-status"><span>9:41</span><span>▮▮▮ ▾ 100%</span></div>
+              <div class="ph-bar">
+                <span class="ph-burger"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></span>
+                <span class="ph-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg> Ruta</span>
+                <span class="ph-back">‹ Mis viajes</span>
+              </div>
+              <div class="ph-body">
+                <div style="font-size:17px;font-weight:800;letter-spacing:-.03em">Ruta</div>
+                <div style="font-size:9.5px;color:var(--sub);margin-bottom:10px">Añade paradas, días y actividades a tu ritmo.</div>
+
+                <div class="tl">
+                  <div class="tl-line"><span class="tl-dot" style="background:#0B2239"></span><span class="tl-rail"></span></div>
+                  <div class="tl-body">
+                    <div class="city">
+                      <span><span class="n">Tokio</span><span class="d" style="color:#0B2239">3 – 7 abr</span></span>
+                      <span class="c">5d ⌄</span>
+                    </div>
+                    <div class="day">
+                      <div class="day-h">
+                        <span class="datebox"><b>4</b><i>abr</i></span>
+                        <span><span class="dow">vie</span><br /><span class="t">Shibuya y Harajuku</span></span>
+                      </div>
+                      <div class="acts">
+                        <div class="act">
+                          <span class="tick on"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+                          <span class="hh">09:30</span>
+                          <span><span class="x">Cruce de Shibuya<i class="chip" style="color:#1CA6A6;background:rgba(28,166,166,.1)">Cultura</i></span></span>
+                        </div>
+                        <div class="act">
+                          <span class="tick on"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+                          <span class="hh">12:00</span>
+                          <span><span class="x">Santuario Meiji<i class="chip" style="color:#C9962E;background:rgba(201,150,46,.12)">Historia</i></span></span>
+                        </div>
+                        <div class="act">
+                          <span class="tick"></span>
+                          <span class="hh">14:30</span>
+                          <span><span class="x">Ramen en Ichiran<i class="chip" style="color:#FF5A3C;background:rgba(255,90,60,.1)">Comida</i></span><span class="price">¥1.480</span></span>
+                        </div>
+                        <div class="act">
+                          <span class="tick"></span>
+                          <span class="hh">19:00</span>
+                          <span><span class="x">Mirador Shibuya Sky<i class="chip" style="color:#3D6FA6;background:rgba(61,111,166,.1)">Tech</i></span><span class="price">¥2.200</span></span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="day">
+                      <div class="day-h">
+                        <span class="datebox"><b>5</b><i>abr</i></span>
+                        <span><span class="dow">sáb</span><br /><span class="t">Asakusa y Akihabara</span></span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="cap"><b>Ruta</b><span>Días y actividades, arrastrables</span></div>
+        </div>
+
+        <!-- Gastos -->
+        <div class="shot">
+          <div class="phone" role="img" aria-label="Pantalla Gastos: total gastado, presupuesto y reparto por categorías.">
+            <div class="phone-screen">
+              <div class="phone-notch"></div>
+              <div class="ph-status"><span>9:41</span><span>▮▮▮ ▾ 100%</span></div>
+              <div class="ph-bar">
+                <span class="ph-burger"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></span>
+                <span class="ph-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H6a2 2 0 0 1 0-4h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg> Gastos</span>
+                <span class="ph-back">‹ Mis viajes</span>
+              </div>
+              <div class="ph-body">
+                <div class="filters"><span class="on">Conjunto</span><span>Todos</span><span>Todo</span><span>Categoría ⌄</span></div>
+                <div class="ph-card">
+                  <div style="display:flex;justify-content:space-between;align-items:flex-end">
+                    <div>
+                      <div class="ph-lbl">Total</div>
+                      <div class="ph-num" style="font-size:27px">3.240,50 €</div>
+                      <div class="ph-mini">Reservas 1.980 € · Ruta 742 € · Manual 518 €</div>
+                    </div>
+                    <div style="text-align:right">
+                      <div class="ph-mini">de 4.000 €</div>
+                      <div style="font-size:11px;font-weight:800;color:var(--jade)">759,50 €</div>
+                    </div>
+                  </div>
+                  <div class="bar"><i style="width:81%"></i></div>
+                  <div class="donut"></div>
+                  <div class="legend" style="justify-content:center;border-top:0;margin-top:10px;padding-top:0">
+                    <span><i class="dot" style="border-radius:99px;background:#0B2239"></i>Alojamiento</span>
+                    <span><i class="dot" style="border-radius:99px;background:#1CA6A6"></i>Transporte</span>
+                    <span><i class="dot" style="border-radius:99px;background:#FF5A3C"></i>Comida</span>
+                    <span><i class="dot" style="border-radius:99px;background:#C9962E"></i>Ocio</span>
+                    <span><i class="dot" style="border-radius:99px;background:#3D6FA6"></i>Otros</span>
+                  </div>
+                </div>
+                <div class="ph-card">
+                  <div class="ph-sect"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H6a2 2 0 0 1 0-4h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/></svg> Balance Fátima · Rubén</div>
+                  <div class="bal"><span>Fátima ha pagado</span><b>1.980,00 €</b></div>
+                  <div class="bal"><span>Rubén ha pagado</span><b>1.260,50 €</b></div>
+                  <div style="background:rgba(28,166,166,.1);border-radius:8px;padding:7px 9px;font-size:9.5px;margin-top:8px">Rubén le debe a Fátima <b style="color:#12807f">359,75 €</b></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="cap"><b>Gastos</b><span>Divisas, presupuesto y balance</span></div>
+        </div>
+
+        <!-- Reservas -->
+        <div class="shot">
+          <div class="phone" role="img" aria-label="Pantalla Reservas: vuelos, hoteles y entradas con su estado y su PDF.">
+            <div class="phone-screen">
+              <div class="phone-notch"></div>
+              <div class="ph-status"><span>9:41</span><span>▮▮▮ ▾ 100%</span></div>
+              <div class="ph-bar">
+                <span class="ph-burger"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></span>
+                <span class="ph-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg> Reservas</span>
+                <span class="ph-back">‹ Mis viajes</span>
+              </div>
+              <div class="ph-body">
+                <div style="font-size:17px;font-weight:800;letter-spacing:-.03em">Reservas</div>
+                <div style="font-size:9.5px;color:var(--sub);margin-bottom:10px">7 de 9 reservadas · 6 pagadas</div>
+                <div class="filters"><span class="on">Todas</span><span>Vuelo</span><span>Hotel</span><span>Tren</span></div>
+
+                <div class="bk">
+                  <span class="bk-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5Z"/></svg></span>
+                  <span style="flex:1;min-width:0">
+                    <span class="n">Madrid → Tokio Haneda</span>
+                    <span class="m">3 abr · 12:35 · Iberia · QK7T2P</span>
+                    <span><i class="badge b-jade">Reservado</i><i class="badge b-jade">Pagado</i><i class="badge b-line">📎 1</i></span>
+                  </span>
+                  <span style="font-family:var(--mono);font-size:9.5px;font-weight:700;color:var(--coral-deep)">742 €</span>
+                </div>
+
+                <div class="bk">
+                  <span class="bk-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V7l9-4 9 4v14"/><path d="M9 21v-6h6v6M9 11h.01M15 11h.01"/></svg></span>
+                  <span style="flex:1;min-width:0">
+                    <span class="n">Hotel Gracery Shinjuku</span>
+                    <span class="m">3 – 7 abr · 4 noches</span>
+                    <span><i class="badge b-jade">Reservado</i><i class="badge b-gold">Sin pagar</i></span>
+                  </span>
+                  <span style="font-family:var(--mono);font-size:9.5px;font-weight:700;color:var(--coral-deep)">612 €</span>
+                </div>
+
+                <div class="bk">
+                  <span class="bk-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="14" rx="2"/><path d="M4 11h16M8 21l2-4M16 21l-2-4"/><circle cx="8.5" cy="14" r=".6" fill="currentColor"/><circle cx="15.5" cy="14" r=".6" fill="currentColor"/></svg></span>
+                  <span style="flex:1;min-width:0">
+                    <span class="n">Shinkansen Tokio → Kioto</span>
+                    <span class="m">11 abr · 08:12 · Nozomi 21</span>
+                    <span><i class="badge b-jade">Reservado</i><i class="badge b-jade">Pagado</i></span>
+                  </span>
+                  <span style="font-family:var(--mono);font-size:9.5px;font-weight:700;color:var(--coral-deep)">¥13.320</span>
+                </div>
+
+                <div class="bk">
+                  <span class="bk-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V7l9-4 9 4v14"/><path d="M9 21v-6h6v6"/></svg></span>
+                  <span style="flex:1;min-width:0">
+                    <span class="n">Ryokan Yoshida-sanso</span>
+                    <span class="m">11 – 14 abr · 3 noches</span>
+                    <span><i class="badge b-gold">Sin reservar</i></span>
+                  </span>
+                  <span style="font-family:var(--mono);font-size:9.5px;font-weight:700;color:var(--coral-deep)">468 €</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="cap"><b>Reservas</b><span>Con su localizador y su PDF</span></div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CÓMO FUNCIONA ============ -->
+  <section class="band">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="kicker">Cómo funciona</div>
+        <h2>De la idea al avión en tres pasos</h2>
+        <p>No hay que configurar nada. Creas una cuenta, creas un viaje y empiezas.</p>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <h3>Crea el viaje</h3>
+          <p>Entras con Google o con tu correo, le pones nombre al viaje y ya tienes tu espacio. Puedes tener todos los viajes que quieras.</p>
+        </div>
+        <div class="step">
+          <h3>Monta la ruta</h3>
+          <p>Añades las ciudades con sus fechas y Waynode reparte los días solo. Después vas colgando actividades, reservas y gastos según los cierras.</p>
+        </div>
+        <div class="step">
+          <h3>Vive el viaje</h3>
+          <p>Durante el viaje vas tachando, apuntando gastos y escribiendo el diario. Al volver, exportas el viaje entero a PDF y te lo guardas.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PRIVACIDAD ============ -->
+  <section id="privacidad" class="dark">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="kicker">Privacidad</div>
+        <h2>Tus viajes no son un producto</h2>
+        <p>Waynode no tiene publicidad, no tiene analítica de terceros y no vende nada a nadie. El modelo es sencillo: no hay modelo.</p>
+      </div>
+      <div class="privacy-grid">
+        <div class="pcard">
+          <h3><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5Z"/></svg> Cero rastreo</h3>
+          <p>Ni cookies de publicidad, ni píxeles, ni SDK de terceros. No sabemos por dónde navegas y no queremos saberlo.</p>
+        </div>
+        <div class="pcard">
+          <h3><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Cifrado y en la UE</h3>
+          <p>Todo viaja por HTTPS y se guarda en servidores de Supabase dentro de la Unión Europea, con acceso restringido a tu cuenta.</p>
+        </div>
+        <div class="pcard">
+          <h3><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg> Te puedes ir cuando quieras</h3>
+          <p>Un botón dentro de la app borra tu cuenta y todo su contenido. Sin formularios, sin esperas y sin copias guardadas.</p>
+        </div>
+      </div>
+      <p class="dark-links">
+        <a href="/privacidad">Política de privacidad</a>·<a href="/terminos">Términos de uso</a>·<a href="/eliminar-cuenta">Eliminar tu cuenta</a>
+      </p>
+    </div>
+  </section>
+
+  <!-- ============ DESCARGA ============ -->
+  <section id="descargar">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="kicker">Llévatela</div>
+        <h2>En el navegador o en el móvil</h2>
+        <p>Es la misma app en los dos sitios, con los mismos datos. Instálala y se comporta como una app nativa: icono, pantalla completa y arranque instantáneo.</p>
+      </div>
+      <div class="get">
+        <div class="get-card">
+          <h3>Ahora mismo, en el navegador</h3>
+          <p>Ábrela y empieza. Desde el móvil, en el menú del navegador pulsa «Añadir a pantalla de inicio» y te queda el icono como una app más.</p>
+          <a class="btn btn-primary" href="/app">Abrir Waynode</a>
+        </div>
+        <div class="get-card">
+          <h3>En Google Play</h3>
+          <p>La versión para Android está en camino. Es la misma app empaquetada, así que las mejoras llegan sin esperar actualizaciones.</p>
+          <!-- Cuando la app esté publicada, cambia esto por:
+               <a class="play-badge" href="https://play.google.com/store/apps/details?id=com.waynodeapp.app"> -->
+          <span class="play-badge" aria-disabled="true">
+            <svg width="24" height="26" viewBox="0 0 24 26" aria-hidden="true"><path fill="#EA4335" d="M2 1.2 13.6 12.9 2 24.6a2 2 0 0 1-.9-1.7V2.9c0-.7.4-1.3.9-1.7Z" opacity=".95"/><path fill="#FBBC04" d="m17.3 9.2-3.7 3.7L2 1.2c.3-.2.8-.2 1.2 0l14.1 8Z"/><path fill="#34A853" d="m17.3 16.6-14.1 8c-.4.2-.9.2-1.2 0l11.6-11.7 3.7 3.7Z"/><path fill="#4285F4" d="m21.9 11.2-4.6-2-3.7 3.7 3.7 3.7 4.6-2.6c.9-.5.9-2.3 0-2.8Z"/></svg>
+            <span><small>Próximamente en</small><strong>Google Play</strong></span>
+          </span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FAQ ============ -->
+  <section id="faq" class="band">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="kicker">Preguntas</div>
+        <h2>Lo que suele preguntarse</h2>
+      </div>
+      <div class="faq">
+        <details open>
+          <summary>¿Cuánto cuesta?</summary>
+          <p>Nada. Waynode es gratis y no tiene funciones de pago escondidas, ni límite de viajes, ni anuncios.</p>
+        </details>
+        <details>
+          <summary>¿Funciona sin conexión?</summary>
+          <p>Necesita internet para leer y guardar, porque tus viajes viven en el servidor y no en el móvil: así los ves igual desde el teléfono y desde el ordenador, y no se pierden si cambias de aparato. Lo que sí hace sin cobertura es abrirse al instante, porque la app queda guardada en el navegador.</p>
+        </details>
+        <details>
+          <summary>¿Puedo usarla en el ordenador?</summary>
+          <p>Sí. Es una web, así que funciona en cualquier navegador moderno. Se ve igual y con los mismos datos: normalmente se planifica en el ordenador y se consulta en el móvil.</p>
+        </details>
+        <details>
+          <summary>¿Cómo comparto un viaje con quien viaja conmigo?</summary>
+          <p>En «Mis viajes», el botón de compartir de cada viaje permite invitar por correo. Cuando esa persona entra con ese correo, ve la invitación y puede aceptarla. A partir de ahí edita el mismo viaje que tú: no hay copias, es el mismo.</p>
+        </details>
+        <details>
+          <summary>¿Qué pasa con mis datos si borro la cuenta?</summary>
+          <p>Se borran: tus viajes, tus adjuntos, tu diario, tus invitaciones y tu usuario. No guardamos copia ni hay periodo de retención. Puedes hacerlo tú desde <em>Mis viajes → Tu cuenta → Eliminar mi cuenta</em>, o pidiéndolo por correo. Antes de borrar, exporta tus viajes a PDF si quieres conservarlos.</p>
+        </details>
+        <details>
+          <summary>¿En qué idiomas está?</summary>
+          <p>De momento en español. Los importes se muestran en la moneda que elijas para cada viaje, con su tipo de cambio, y puedes llevar dos a la vez (por ejemplo euros y yenes).</p>
+        </details>
+        <details>
+          <summary>¿Puedo sacar mis datos de la app?</summary>
+          <p>Sí. Cada viaje tiene un botón de <em>Exportar a PDF</em> que genera un documento con todo: ruta, días, actividades, reservas, gastos, listas y diario. Es tuyo y no depende de que la app siga existiendo.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CTA ============ -->
+  <section class="cta">
+    <div class="wrap">
+      <h2>Tu próximo viaje empieza aquí</h2>
+      <p>Crea una cuenta en treinta segundos y empieza a montar la ruta. No hace falta tarjeta, porque no hay nada que pagar.</p>
+      <a class="btn btn-primary" href="/app">
+        Empezar gratis
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </a>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <div>
+        <a class="brand" href="/">
+          <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
+            <circle cx="16" cy="16" r="15" fill="#1CA6A6"/>
+            <path d="M16 5a11 11 0 0 0 0 22M16 5a11 11 0 0 1 0 22M5 16h22M8 9.5h16M8 22.5h16" fill="none" stroke="#0B2239" stroke-width="1.6" stroke-linecap="round"/>
+            <circle cx="21.5" cy="10.5" r="4" fill="#FF5A3C" stroke="#fff" stroke-width="1.6"/>
+          </svg>
+          Waynode
+        </a>
+        <div style="max-width:30ch">Organiza tus viajes sin pelearte con seis aplicaciones distintas.</div>
+      </div>
+      <div class="foot-links">
+        <a href="/app">Abrir la app</a>
+        <a href="#funciones">Funciones</a>
+        <a href="/privacidad">Privacidad</a>
+        <a href="/terminos">Términos</a>
+        <a href="/eliminar-cuenta">Eliminar cuenta</a>
+        <a href="mailto:waynodeapp@gmail.com">Soporte</a>
+      </div>
+    </div>
+    <div class="foot-legal">
+      <span>© 2026 Waynode · Responsable: Fátima Hermida Rodríguez</span>
+      <span>Contacto: <a href="mailto:waynodeapp@gmail.com" style="color:#C6D6E2">waynodeapp@gmail.com</a></span>
+    </div>
+  </div>
+</footer>
+
+<script type="application/ld+json">
+{
+  "@context":"https://schema.org",
+  "@type":"SoftwareApplication",
+  "name":"Waynode",
+  "applicationCategory":"TravelApplication",
+  "operatingSystem":"Web, Android",
+  "url":"https://waynodeapp.com/",
+  "description":"Planificador de viajes: itinerario día a día, reservas, gastos compartidos, maleta, listas y diario de viaje.",
+  "inLanguage":"es",
+  "offers":{"@type":"Offer","price":"0","priceCurrency":"EUR"}
+}
+</script>
+</body>
 </html>

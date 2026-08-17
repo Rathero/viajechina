@@ -1,11 +1,11 @@
 {
-  "id": "/",
+  "id": "/app",
   "name": "Waynode: organiza tus viajes",
   "short_name": "Waynode",
   "description": "Organiza tu viaje: itinerario, reservas, gastos compartidos y diario.",
   "lang": "es",
   "dir": "ltr",
-  "start_url": "/",
+  "start_url": "/app",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",

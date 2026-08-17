@@ -31,7 +31,7 @@
     {
       "name": "Mis viajes",
       "shortName": "Viajes",
-      "url": "/",
+      "url": "/app",
       "icon": "/icons/icon-192.png"
     }
   ]

@@ -1,0 +1,43 @@
+<!-- Imagen para compartir enlaces (Open Graph / Twitter). Tamaño: 1200 × 630 px.
+     Exportar a PNG con:  npx svgexport brand/og.svg public/og.png 1200:630
+     Después, en index.html, cambia og:image y twitter:image a https://waynodeapp.com/og.png -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0B2239"/>
+      <stop offset="100%" stop-color="#173F63"/>
+    </linearGradient>
+    <radialGradient id="gj" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#1CA6A6" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#1CA6A6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="gc" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#FF5A3C" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#FF5A3C" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <ellipse cx="1050" cy="70" rx="470" ry="340" fill="url(#gj)"/>
+  <ellipse cx="120" cy="580" rx="430" ry="300" fill="url(#gc)"/>
+
+  <path d="M760 520 C 870 450, 860 340, 960 290 S 1120 200, 1170 130"
+        fill="none" stroke="#FFC857" stroke-opacity="0.4" stroke-width="4" stroke-dasharray="12 14" stroke-linecap="round"/>
+  <circle cx="760" cy="520" r="11" fill="#FF5A3C"/>
+  <circle cx="960" cy="290" r="11" fill="#1CA6A6"/>
+  <circle cx="1170" cy="130" r="11" fill="#FFC857"/>
+
+  <g transform="translate(90 108)">
+    <circle cx="32" cy="32" r="31" fill="#1CA6A6"/>
+    <path d="M32 9a23 23 0 0 0 0 46M32 9a23 23 0 0 1 0 46M9 32h46M15 20h34M15 44h34"
+          fill="none" stroke="#0B2239" stroke-width="3.2" stroke-linecap="round"/>
+    <circle cx="43" cy="21" r="8" fill="#FF5A3C" stroke="#fff" stroke-width="3.2"/>
+  </g>
+  <text x="172" y="152" fill="#FFFFFF" font-size="42" font-weight="800" letter-spacing="-1">Waynode</text>
+
+  <text x="90" y="330" fill="#FFFFFF" font-size="70" font-weight="800" letter-spacing="-2.4">Todo tu viaje,</text>
+  <text x="90" y="412" fill="#FFC857" font-size="70" font-weight="800" letter-spacing="-2.4">en una sola app</text>
+
+  <text x="90" y="482" fill="#A9C1D2" font-size="28" font-weight="500">Itinerario día a día · Reservas · Gastos compartidos · Diario</text>
+  <text x="90" y="540" fill="#7E97AC" font-size="24" font-weight="600">waynodeapp.com</text>
+</svg>

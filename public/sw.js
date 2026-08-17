@@ -9,12 +9,17 @@
    Ojo: la app necesita conexión para leer y guardar datos. Este SW hace que
    abra rápido, no que funcione sin internet. */
 
-const CACHE = "waynode-v1";
-const SHELL = "/index.html";
+const CACHE = "waynode-v2";
+/* Dos shells: la landing pública (/) y la app (/app). Cada navegación cae en el
+   suyo cuando no hay red, para que un corte en la app no acabe mostrando la web
+   comercial (ni al revés). */
+const SHELL_APP = "/app";
+const SHELL_SITE = "/";
+const shellFor = (pathname) => (pathname.startsWith("/app") ? SHELL_APP : SHELL_SITE);
 
 self.addEventListener("install", (e) => {
   e.waitUntil(
-    caches.open(CACHE).then((c) => c.addAll([SHELL, "/"])).then(() => self.skipWaiting())
+    caches.open(CACHE).then((c) => c.addAll([SHELL_APP, SHELL_SITE])).then(() => self.skipWaiting())
   );
 });
 
@@ -39,14 +44,20 @@ self.addEventListener("fetch", (e) => {
   // Navegación: primero la red (para recibir despliegues nuevos), con el
   // shell cacheado como respaldo si no hay conexión.
   if (req.mode === "navigate") {
+    const shell = shellFor(url.pathname);
+    // Solo refrescamos el shell si lo que se ha pedido ES el shell: si no, una
+    // visita a /privacidad quedaría cacheada como si fuera la portada.
+    const isShell = url.pathname === shell || (shell === SHELL_APP && url.pathname.startsWith("/app"));
     e.respondWith(
       fetch(req)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(SHELL, copy)).catch(() => {});
+          if (isShell && res && res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(shell, copy)).catch(() => {});
+          }
           return res;
         })
-        .catch(() => caches.match(SHELL).then((r) => r || Response.error()))
+        .catch(() => caches.match(shell).then((r) => r || Response.error()))
     );
     return;
   }

@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+# La app es privada: indexar la pantalla de login no aporta nada.
+Disallow: /app
+
+Sitemap: https://waynodeapp.com/sitemap.xml
