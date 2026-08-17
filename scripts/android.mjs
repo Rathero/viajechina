@@ -43,8 +43,26 @@ const die = (m, hint) => {
    así que se entrecomilla siempre. */
 const quote = (s) => (/\s/.test(s) && !s.startsWith('"') ? `"${s}"` : s);
 
+/* Bubblewrap lanza Gradle como "gradlew.bat", sin el prefijo ".\". Si el equipo
+   tiene NoDefaultCurrentDirectoryInExePath=1 (lo pone algún endurecimiento de
+   Windows y también algunos entornos corporativos), cmd.exe se niega a ejecutar
+   nada del directorio actual sin ruta explícita y el build muere con
+   «"gradlew.bat" no se reconoce como un comando». Se quita esa variable solo
+   para los procesos que lanzamos aquí; el gradlew es el que genera Bubblewrap
+   dentro de android/, no un binario de origen desconocido. */
+const childEnv = { ...process.env };
+for (const k of Object.keys(childEnv)) {
+  if (k.toLowerCase() === "nodefaultcurrentdirectoryinexepath") delete childEnv[k];
+}
+
 function run(bin, args, opts = {}) {
-  const res = spawnSync(quote(bin), args, { stdio: "inherit", shell: true, cwd: ROOT, ...opts });
+  const res = spawnSync(quote(bin), args, {
+    stdio: "inherit",
+    shell: true,
+    cwd: ROOT,
+    env: childEnv,
+    ...opts,
+  });
   if (res.status !== 0) die(`Falló: ${bin} ${args.join(" ")}`);
 }
 
@@ -60,6 +78,28 @@ if (!fs.existsSync(bubblewrap)) die("Falta Bubblewrap.", "npm install");
 /* ---------- doctor ---------- */
 if (cmd === "doctor") {
   run(bubblewrap, ["doctor"]);
+
+  /* Si se reinstalan los paquetes sobre una instalación previa, sdkmanager crea
+     una copia con sufijo (platforms/android-36-2) cuyo package.xml declara la
+     MISMA ruta que la original. AGP entonces no resuelve la plataforma y el
+     build muere con "Failed to find target with hash string 'android-36'", que
+     no da ninguna pista de que el problema sea un duplicado. */
+  const cfgFile = path.join(os.homedir(), ".bubblewrap", "config.json");
+  if (fs.existsSync(cfgFile)) {
+    const { androidSdkPath } = JSON.parse(fs.readFileSync(cfgFile, "utf8"));
+    const platforms = path.join(androidSdkPath || "", "platforms");
+    if (fs.existsSync(platforms)) {
+      const dupes = fs.readdirSync(platforms).filter((d) => /^android-\d+-\d+$/.test(d));
+      if (dupes.length) {
+        console.log(`\n  \x1b[33m! Plataformas duplicadas en el SDK: ${dupes.join(", ")}\x1b[0m`);
+        console.log("    Rompen la compilación. Bórralas:");
+        for (const d of dupes) console.log(`      rm -rf "${path.join(platforms, d)}"`);
+        console.log("");
+      } else {
+        console.log("  \x1b[32m✓\x1b[0m Sin plataformas duplicadas en el SDK.");
+      }
+    }
+  }
   process.exit(0);
 }
 
@@ -131,44 +171,74 @@ if (cmd === "fingerprint") {
   process.exit(0);
 }
 
+/* `verify` compila SIN firmar: sirve para comprobar que Gradle y el proyecto
+   Android están bien antes de crear la clave. Lo que sale NO se puede subir a
+   Play (exige bundle firmado), es solo una prueba del pipeline. */
+const verifyOnly = cmd === "verify";
+
 /* ---------- 1 y 2: configuración ---------- */
 step("Configuración");
 run(process.execPath, ["scripts/twa-sync.mjs"]);
-run(process.execPath, ["scripts/twa-sync.mjs", "--check"]);
+// La validación estricta exige huellas SHA-256, que no existen hasta que hay
+// clave; en modo verificación todavía no toca.
+if (!verifyOnly) run(process.execPath, ["scripts/twa-sync.mjs", "--check"]);
 
 /* ---------- 3: proyecto Android ---------- */
 step("Proyecto Android");
 fs.mkdirSync(ANDROID_DIR, { recursive: true });
 if (!fs.existsSync(MANIFEST)) die("No se ha generado android/twa-manifest.json.");
 
-// --skipVersionUpgrade: la versión la manda twa.config.json (npm run twa:bump),
-// no Bubblewrap, para que sea un dato del repositorio y no del estado local.
-run(bubblewrap, [
-  "update",
-  "--directory", "android",
-  "--manifest", "android/twa-manifest.json",
-  "--skipVersionUpgrade",
-]);
+/* Se ejecuta DENTRO de android/ y sin --directory a propósito: Bubblewrap
+   respeta esa opción al generar el proyecto, pero al llamar a Gradle usa
+   process.cwd() y buscaría gradlew en la raíz del repositorio, donde no está.
+   Con el cwd correcto, además, los valores por defecto ya apuntan bien.
+
+   --skipVersionUpgrade: la versión la manda twa.config.json (npm run twa:bump),
+   no Bubblewrap, para que sea un dato del repositorio y no del estado local. */
+run(bubblewrap, ["update", "--skipVersionUpgrade"], { cwd: ANDROID_DIR });
 
 if (cmd === "update") {
   console.log("\n\x1b[32m✓ Proyecto Android regenerado.\x1b[0m\n");
   process.exit(0);
 }
 
-/* ---------- 4: compilar y firmar ---------- */
-if (!fs.existsSync(KEYSTORE)) {
+/* ---------- 4: compilar ---------- */
+if (!verifyOnly && !fs.existsSync(KEYSTORE)) {
   die(
     "No existe la clave de firma (android.keystore).",
-    "Créala tú — lleva contraseña y no debe pasar por aquí. Ver PLAY_STORE.md, paso 2."
+    "Créala tú — lleva contraseña y no debe pasar por aquí. Ver PLAY_STORE.md, paso 2.\n" +
+      "    Para probar antes que todo lo demás compila:  npm run android:verify"
   );
 }
 
-step("Compilar y firmar");
-console.log("  Bubblewrap pedirá la contraseña del keystore y la de la clave.\n");
-run(bubblewrap, ["build", "--directory", "android", "--manifest", "android/twa-manifest.json"]);
+const buildArgs = ["build"];
+
+if (verifyOnly) {
+  step("Compilar sin firmar (prueba)");
+  buildArgs.push("--skipSigning");
+} else {
+  step("Compilar y firmar");
+  console.log("  Bubblewrap pedirá la contraseña del keystore y la de la clave.\n");
+}
+
+run(bubblewrap, buildArgs, { cwd: ANDROID_DIR });
+
+console.log("");
+if (verifyOnly) {
+  // Sin firmar, Bubblewrap deja el bundle con el nombre que le da Gradle.
+  const unsigned = path.join(ANDROID_DIR, "app", "build", "outputs", "bundle", "release", "app-release.aab");
+  const found = fs.existsSync(unsigned);
+  console.log(
+    found
+      ? "\x1b[32m✓ El proyecto compila.\x1b[0m Lo que falta es solo la firma."
+      : "\x1b[33m! Terminó sin errores pero no se localiza el bundle de prueba.\x1b[0m"
+  );
+  console.log("  Este .aab NO se puede subir: Play exige que esté firmado.");
+  console.log("  Siguiente:  npm run android:keystore  →  npm run android:build\n");
+  process.exit(0);
+}
 
 const aab = path.join(ANDROID_DIR, "app-release-bundle.aab");
-console.log("");
 if (fs.existsSync(aab)) {
   const mb = (fs.statSync(aab).size / 1048576).toFixed(1);
   console.log(`\x1b[32m✓ Listo para subir:\x1b[0m android/app-release-bundle.aab (${mb} MB)`);

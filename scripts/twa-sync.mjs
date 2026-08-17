@@ -181,7 +181,10 @@ const twaManifest = {
   maskableIconUrl: maskable ? `${origin}${maskable.src}` : undefined,
   webManifestUrl: `${origin}/manifest.webmanifest`,
   fullScopeUrl: `${origin}${manifest.scope || "/"}`,
-  appVersionName: pkg.version,
+  /* Ojo con el nombre de la clave: Bubblewrap lee el nombre de versión de
+     "appVersion" (lo mapea a appVersionName al cargarlo). Si se escribe
+     "appVersionName" lo ignora en silencio y compila con versionName "". */
+  appVersion: pkg.version,
   appVersionCode: cfg.versionCode,
   minSdkVersion: cfg.minSdkVersion || 23,
   // El .aab se firma con esta clave. La crea el usuario (lleva contraseña) y NO se versiona.
@@ -195,11 +198,14 @@ const twaManifest = {
   fallbackType: "customtabs",
   isChromeOSOnly: false,
   isMetaQuest: false,
+  /* Los accesos directos del menú largo del icono. Ojo: aquí NO vale el formato
+     del manifest web (con su array "icons"); Bubblewrap guarda el icono ya
+     elegido en chosenIconUrl y falla si no lo encuentra. */
   shortcuts: (cfg.shortcuts || []).map((s) => ({
     name: s.name,
-    short_name: s.shortName || s.name,
-    url: s.url,
-    icons: [{ sizes: "192x192", src: `${origin}${s.icon}` }],
+    shortName: s.shortName || s.name,
+    url: `${origin}${s.url}`,
+    chosenIconUrl: `${origin}${s.icon}`,
   })),
   generatorApp: "twa-sync (scripts/twa-sync.mjs)",
   features: {},

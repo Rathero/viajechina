@@ -20,6 +20,7 @@
     "android:keystore": "node scripts/android.mjs keystore",
     "android:fingerprint": "node scripts/android.mjs fingerprint",
     "android:update": "node scripts/android.mjs update",
+    "android:verify": "node scripts/android.mjs verify",
     "android:build": "node scripts/android.mjs build"
   },
   "dependencies": {

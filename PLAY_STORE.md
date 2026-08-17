@@ -74,6 +74,29 @@ propiedad se hace contra él.
 
 ---
 
+> ### El `www` no es opcional
+>
+> El dominio va con **`www.waynodeapp.com`**, no `waynodeapp.com`. El apex hace un
+> 308 a `www`, y la verificación de Digital Asset Links **no sigue redirecciones**:
+> con el apex en `twa.config.json`, la app se instalaría con la barra de URL de
+> Chrome encima. Si algún día el canónico deja de ser `www`, hay que cambiarlo
+> aquí y volver a subir un `.aab`.
+
+---
+
+## Paso 1b — (opcional) Comprobar que compila
+
+Antes de crear la clave puedes verificar que todo el pipeline funciona:
+
+```bash
+npm run android:verify
+```
+
+Compila **sin firmar**. Lo que sale no se puede subir a Play, pero si esto pasa,
+el `.aab` de verdad va a salir bien.
+
+---
+
 ## Paso 2 — Crear la clave de firma
 
 ```bash
