@@ -57,14 +57,20 @@ propiedad se hace contra él.
    ```
 
 3. En **Supabase → Authentication → URL Configuration**:
-   - *Site URL* = `https://tu-dominio.com`
-   - *Redirect URLs* = esa misma URL, `https://tu-dominio.com/**` y
-     `http://localhost:5173` (para desarrollo).
+   - *Site URL* = `https://tu-dominio.com/app`
+   - *Redirect URLs* = `https://tu-dominio.com/app`, `https://tu-dominio.com/**`
+     y `http://localhost:5173/app` (para desarrollo).
 
-   Sin esto, entrar con Google desde la app devuelve al sitio equivocado.
+   Ojo con el `/app`: la raíz del dominio es la **landing pública** y la
+   aplicación vive en `/app`. Si dejas los redirects apuntando a la raíz, entrar
+   con Google te devuelve a la web comercial en vez de a tus viajes.
 
-**Comprobación:** `https://tu-dominio.com/manifest.webmanifest` debe abrirse y
-mostrar JSON, no descargarse como archivo.
+**Comprobaciones:**
+
+- `https://tu-dominio.com/manifest.webmanifest` debe abrirse y mostrar JSON, no
+  descargarse como archivo. Dentro, `start_url` tiene que ser `/app`.
+- `https://tu-dominio.com/` debe mostrar la landing y `https://tu-dominio.com/app`
+  la pantalla de acceso.
 
 ---
 
@@ -144,19 +150,26 @@ de URL, la verificación funciona. Si aparece la barra, revisa que
 
 ## Paso 6 — Rellenar la ficha de Play
 
-### Antes de nada: los huecos legales
+### Los huecos legales ya están rellenos
 
-Estos dos archivos tienen marcadores sin rellenar y **Google rechaza la app si
-los ve**:
+Las tres páginas legales están publicadas y sin marcadores pendientes:
 
-- `public/privacidad.html` → `[NOMBRE O RAZÓN SOCIAL]`, `[CORREO DE CONTACTO]`, `[FECHA]`
-- `public/eliminar-cuenta.html` → `[CORREO DE CONTACTO]`
+| Página | URL | Contenido |
+|---|---|---|
+| Privacidad | `/privacidad` | Responsable, datos recogidos, encargados, derechos RGPD |
+| Términos de uso | `/terminos` | Cuenta, contenido, viajes compartidos, responsabilidad |
+| Eliminar cuenta | `/eliminar-cuenta` | Los dos caminos de borrado y qué se borra |
 
-Búscalos con:
+Responsable declarado: **Fátima Hermida Rodríguez**. Contacto: **waynodeapp@gmail.com**.
+Si cambia cualquiera de los dos, hay que tocarlos en los tres HTML y en el pie de
+`index.html`:
 
 ```bash
-grep -rn "\[NOMBRE\|\[CORREO\|\[FECHA" public/
+grep -rn "waynodeapp@gmail.com\|Fátima Hermida" index.html public/
 ```
+
+> El correo de contacto tiene que estar **operativo**: los revisores de Play
+> escriben a esa dirección para comprobar el flujo de borrado de cuenta.
 
 ### El borrado de cuenta tiene que funcionar de verdad
 
@@ -176,19 +189,30 @@ cuenta», la función no está desplegada y la app será rechazada.
 
 | Campo | Valor |
 |---|---|
-| Política de privacidad | `https://tu-dominio.com/privacidad.html` |
-| Eliminación de cuenta | `https://tu-dominio.com/eliminar-cuenta.html` |
+| Sitio web | `https://waynodeapp.com` |
+| Política de privacidad | `https://waynodeapp.com/privacidad` |
+| Eliminación de cuenta | `https://waynodeapp.com/eliminar-cuenta` |
+| Email de asistencia | `waynodeapp@gmail.com` |
 
 ### Recursos gráficos
 
 | Recurso | Formato | Estado |
 |---|---|---|
 | Icono | 512×512 PNG | ✅ `public/icons/icon-512.png` |
-| Gráfico destacado | 1024×500 PNG | ⬜ pendiente |
+| Gráfico destacado | 1024×500 PNG | 🟡 fuente lista en `brand/play-feature-graphic.svg`, falta exportar |
 | Capturas de teléfono | mín. 2, entre 320 y 3840 px | ⬜ pendiente |
 
-Para las capturas, abre la app en Chrome con el emulador de móvil (F12 → icono
-de dispositivo) y captura las pantallas de Resumen, Ruta y Gastos.
+Para exportar el gráfico destacado (y de paso la imagen de compartir enlaces):
+
+```bash
+npx svgexport brand/play-feature-graphic.svg brand/play-feature-graphic.png 1024:500
+```
+
+Las **capturas** tienen que ser reales, no maquetas. Abre la app en Chrome, entra
+con tu cuenta, activa el emulador de móvil (F12 → icono de dispositivo, por
+ejemplo *Pixel 7*) y captura **Resumen, Ruta, Gastos y Reservas** con un viaje
+que tenga contenido de verdad. Súbelas a Play y, si quieres, ponlas también en la
+landing (ver «Sustituir las maquetas por capturas» en el README).
 
 Si cambias el icono, pon el tuyo en `brand/icon-source.png` y ejecuta
 `npm run icons`: regenera todos los tamaños, incluidos los *maskable*.
