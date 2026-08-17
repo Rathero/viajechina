@@ -71,7 +71,7 @@ export default function Login() {
   return (
     <div style={{ minHeight: "100vh", background: C.paper, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, paddingTop: "calc(24px + var(--safe-top))", fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif" }}>
       <div style={{ width: "100%", maxWidth: 360 }}>
-        <div style={{ fontSize: 40, fontWeight: 800, color: C.ink, letterSpacing: -1, lineHeight: 1 }}>Mi viaje</div>
+        <div style={{ fontSize: 40, fontWeight: 800, color: C.ink, letterSpacing: -1, lineHeight: 1 }}>Waynode</div>
         <div style={{ color: C.sub, fontSize: 14, marginTop: 6, marginBottom: 24 }}>
           {mode === "signup" ? "Crea tu cuenta para planificar y guardar tus viajes." : "Entra para ver y gestionar tus viajes."}
         </div>

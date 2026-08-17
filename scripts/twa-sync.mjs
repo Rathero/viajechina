@@ -11,7 +11,7 @@
 
    Uso:
      node scripts/twa-sync.mjs                       regenera ambos
-     node scripts/twa-sync.mjs --host miviaje.app    fija el dominio y regenera
+     node scripts/twa-sync.mjs --host waynodeapp.com    fija el dominio y regenera
      node scripts/twa-sync.mjs --fingerprint AA:BB:… añade una huella SHA-256 y regenera
      node scripts/twa-sync.mjs --bump                sube versionCode en 1 y regenera
      node scripts/twa-sync.mjs --check               no escribe: solo valida (para CI/preflight)
@@ -79,7 +79,7 @@ if (hostArg !== null) {
     .replace(/\.$/, "")
     .toLowerCase();
   if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(clean)) {
-    die(`"${hostArg}" no parece un dominio válido.`, "Ejemplo: npm run twa:host -- miviaje.app");
+    die(`"${hostArg}" no parece un dominio válido.`, "Ejemplo: npm run twa:host -- waynodeapp.com");
   }
   cfg.host = clean;
   mutated = true;
@@ -129,7 +129,7 @@ if (!cfg.host) {
 if (!cfg.applicationId || !/^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/.test(cfg.applicationId)) {
   problems.push({
     what: `applicationId inválido: "${cfg.applicationId}".`,
-    fix: "Debe ser tipo com.miviaje.app: minúsculas, al menos un punto, sin guiones.",
+    fix: "Debe ser tipo com.waynodeapp.com: minúsculas, al menos un punto, sin guiones.",
   });
 }
 if (!Number.isInteger(cfg.versionCode) || cfg.versionCode < 1) {

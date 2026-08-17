@@ -5,7 +5,7 @@
     ],
     "target": {
       "namespace": "android_app",
-      "package_name": "com.miviaje.app",
+      "package_name": "com.waynodeapp.app",
       "sha256_cert_fingerprints": []
     }
   }

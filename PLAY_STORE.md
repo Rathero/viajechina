@@ -1,4 +1,4 @@
-# Publicar Mi Viaje en Google Play
+# Publicar Waynode en Google Play
 
 Guía completa, de un repositorio recién clonado a la app publicada.
 

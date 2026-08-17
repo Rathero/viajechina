@@ -7,9 +7,9 @@
     "",
     "Tras editar este archivo ejecuta:  npm run twa:sync"
   ],
-  "host": "",
-  "$comment_host": "Dominio de producción, SIN https:// ni barra final. Ej: miviaje.app. Atajo: npm run twa:host -- miviaje.app",
-  "applicationId": "com.miviaje.app",
+  "host": "waynodeapp.com",
+  "$comment_host": "Dominio de producción, SIN https:// ni barra final. Ej: waynodeapp.com. Atajo: npm run twa:host -- waynodeapp.com",
+  "applicationId": "com.waynodeapp.app",
   "$comment_applicationId": "PERMANENTE. Una vez publicado en Play no se puede cambiar nunca.",
   "versionCode": 1,
   "$comment_versionCode": "Entero. Play exige que cada subida lo incremente. Atajo: npm run twa:bump",
