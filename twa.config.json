@@ -15,7 +15,9 @@
   "$comment_versionCode": "Entero. Play exige que cada subida lo incremente. Atajo: npm run twa:bump",
   "minSdkVersion": 23,
   "$comment_minSdkVersion": "Android 6. Por debajo de 23 los TWA no funcionan de forma fiable.",
-  "signingKeyFingerprints": [],
+  "signingKeyFingerprints": [
+    "A6:1E:6D:A4:3F:6F:B8:3A:44:9F:EE:17:3F:AB:50:4C:C7:B9:AB:5F:23:6B:39:E0:B5:C9:81:91:CD:FC:60:17"
+  ],
   "$comment_signingKeyFingerprints": [
     "Huellas SHA-256 que se publican en /.well-known/assetlinks.json.",
     "Sin ellas la app se abre con la barra de URL de Chrome encima: Play no la rechaza,",

@@ -6,7 +6,9 @@
     "target": {
       "namespace": "android_app",
       "package_name": "com.waynodeapp.app",
-      "sha256_cert_fingerprints": []
+      "sha256_cert_fingerprints": [
+        "A6:1E:6D:A4:3F:6F:B8:3A:44:9F:EE:17:3F:AB:50:4C:C7:B9:AB:5F:23:6B:39:E0:B5:C9:81:91:CD:FC:60:17"
+      ]
     }
   }
 ]
