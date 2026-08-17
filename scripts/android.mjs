@@ -55,6 +55,18 @@ for (const k of Object.keys(childEnv)) {
   if (k.toLowerCase() === "nodefaultcurrentdirectoryinexepath") delete childEnv[k];
 }
 
+/** Como run(), pero devuelve si fue bien en vez de abortar. */
+function tryRun(bin, args, opts = {}) {
+  const res = spawnSync(quote(bin), args, {
+    stdio: "inherit",
+    shell: true,
+    cwd: ROOT,
+    env: childEnv,
+    ...opts,
+  });
+  return res.status === 0;
+}
+
 function run(bin, args, opts = {}) {
   const res = spawnSync(quote(bin), args, {
     stdio: "inherit",
@@ -195,7 +207,61 @@ if (!fs.existsSync(MANIFEST)) die("No se ha generado android/twa-manifest.json."
 
    --skipVersionUpgrade: la versión la manda twa.config.json (npm run twa:bump),
    no Bubblewrap, para que sea un dato del repositorio y no del estado local. */
-run(bubblewrap, ["update", "--skipVersionUpgrade"], { cwd: ANDROID_DIR });
+/* `update` borra la carpeta app/ completa para regenerarla, y dentro está
+   app/build con los intermedios de Gradle. Si sigue vivo un demonio de Gradle
+   de una compilación anterior, mantiene abiertos ficheros como classes.dex y en
+   Windows el borrado falla con EBUSY. Se le pide parar antes; si no hay ninguno,
+   el comando no hace nada. */
+function stopGradleDaemon() {
+  const gradlew = path.join(ANDROID_DIR, process.platform === "win32" ? "gradlew.bat" : "gradlew");
+  if (!fs.existsSync(gradlew)) return;
+  spawnSync(quote(gradlew), ["--stop"], {
+    stdio: "ignore",
+    shell: true,
+    cwd: ANDROID_DIR,
+    env: childEnv,
+  });
+}
+
+/** Borra una ruta aguantando los bloqueos momentáneos de Windows. */
+function removeQuietly(target) {
+  try {
+    fs.rmSync(target, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
+    return true;
+  } catch (_) {
+    return false; // lo tiene abierto otro proceso; el llamante decide
+  }
+}
+
+/* Se para el demonio y se limpian los intermedios ANTES de llamar a update.
+   Si update se encuentra un fichero bloqueado a mitad, deja el proyecto medio
+   borrado (se lleva gradlew y build.gradle antes de atascarse con app/), y a
+   partir de ahí ni compila ni se puede parar el demonio porque el propio
+   gradlew ya no existe. Prevenirlo sale mucho más barato que recuperarse. */
+stopGradleDaemon();
+removeQuietly(path.join(ANDROID_DIR, "app", "build"));
+
+if (!tryRun(bubblewrap, ["update", "--skipVersionUpgrade"], { cwd: ANDROID_DIR })) {
+  /* Segundo intento partiendo de cero. El contenido de android/ es todo
+     generado, así que vaciarlo no pierde nada: es más seguro que insistir
+     sobre un proyecto a medio borrar. */
+  console.log("\n  Falló la regeneración. Reintentando desde cero…\n");
+  stopGradleDaemon();
+  for (const entry of fs.existsSync(ANDROID_DIR) ? fs.readdirSync(ANDROID_DIR) : []) {
+    removeQuietly(path.join(ANDROID_DIR, entry));
+  }
+  fs.mkdirSync(ANDROID_DIR, { recursive: true });
+  run(process.execPath, ["scripts/twa-sync.mjs"]); // el vaciado se llevó twa-manifest.json
+
+  if (!tryRun(bubblewrap, ["update", "--skipVersionUpgrade"], { cwd: ANDROID_DIR })) {
+    die(
+      "No se ha podido regenerar el proyecto Android.",
+      "Algún proceso mantiene abiertos ficheros de android/. Cierra Android Studio\n" +
+        "    si lo tienes abierto, comprueba que no queden demonios de Gradle vivos\n" +
+        "    (Get-Process java) y vuelve a intentarlo."
+    );
+  }
+}
 
 if (cmd === "update") {
   console.log("\n\x1b[32m✓ Proyecto Android regenerado.\x1b[0m\n");
