@@ -317,6 +317,7 @@ export default function App({ tripId, tripName, onBack }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [confirmDel, setConfirmDel] = useState(null);
   const [confirmExport, setConfirmExport] = useState(false);
+  const [editDates, setEditDates] = useState(null); // { start, end } al editar fechas del viaje desde Resumen
   const [drag, setDrag] = useState(null); // arrastrar actividades entre días
   const dragSess = useRef(null);
   const dragPos = useRef({ x: 0, y: 0 });
@@ -331,6 +332,7 @@ export default function App({ tripId, tripName, onBack }) {
   useBackLayer(!!lightbox, () => setLightbox(null));
   useBackLayer(!!confirmDel, () => setConfirmDel(null));
   useBackLayer(confirmExport, () => setConfirmExport(false));
+  useBackLayer(!!editDates, () => setEditDates(null));
 
   /* cargar */
   useEffect(() => {
@@ -928,6 +930,32 @@ export default function App({ tripId, tripName, onBack }) {
   const tripDates = minDate && maxDate ? { min: minDate, max: maxDate } : {};
   const clampTrip = (v) => (!v || !minDate || !maxDate) ? v : (v < minDate ? minDate : (v > maxDate ? maxDate : v));
   const tripDay = () => clampTrip(todayISO());
+
+  /* Cambiar las fechas globales del viaje desde Resumen. Las fechas del viaje
+     se derivan del itinerario, así que: 1) desplazamos TODO el itinerario para
+     que empiece en `ns` (conservando las noches de cada parada y sus
+     actividades), y 2) ajustamos la parada que contiene el último día para que
+     el viaje termine en `ne` (se alarga o acorta de forma segura: las
+     actividades de días que se caen se reubican en el día más cercano).
+     En un viaje de una sola parada equivale a redefinir su rango. */
+  const applyTripDates = (ns, ne) => {
+    if (!ns || !ne || ne < ns || !minDate || !maxDate || !itin.length) return;
+    const delta = Math.round((new Date(ns) - new Date(minDate)) / 86400000);
+    if (delta !== 0) {
+      setItin((prev) => prev.map((c) => ({
+        ...c,
+        days: c.days.map((d) => ({ ...d, date: d.date ? addDaysISO(d.date, delta) : d.date })),
+      })));
+    }
+    const endCity = itin.find((c) => c.days.some((d) => d.date === maxDate)) || itin[itin.length - 1];
+    const endCityStart = endCity.days.filter((d) => d.date).map((d) => d.date).sort()[0];
+    if (!endCityStart) return;
+    const shiftedStart = addDaysISO(endCityStart, delta);
+    const shiftedEnd = addDaysISO(maxDate, delta);
+    // setCityRange opera sobre el estado ya desplazado (las actualizaciones de
+    // setItin se aplican en orden), así que usamos las fechas ya desplazadas.
+    if (ne !== shiftedEnd) setCityRange(endCity.id, shiftedStart, ne < shiftedStart ? shiftedStart : ne);
+  };
   const routeExpenses = itin.flatMap((c) => c.days.flatMap((d) => d.items.filter((a) => a.price && a.price > 0).map((a) => ({ id: a.id, cityId: c.id, dayId: d.id, name: a.x || c.city, city: c.city, date: d.date, cat: TYPE_TO_CAT[a.type] || "Actividades", amount: a.price, cur: a.cur || "EUR", paidBy: a.paidBy || "", paid: !!a.booked }))));
   /* Reservas con precio: cuentan como gasto en la categoría de su tipo. */
   const bookingExpenses = bookings.filter((b) => b.price && b.price > 0).map((b) => ({
@@ -1236,7 +1264,15 @@ export default function App({ tripId, tripName, onBack }) {
           {itin.length ? `${itin[0].city} → ${itin[itin.length - 1].city}` : "Añade tu primera parada"}
         </div>
         <div className="flex flex-wrap gap-x-4 gap-y-1 mt-4" style={{ ...mono, fontSize: 13, color: "#9DB2C0" }}>
-          <span>{minDate && maxDate ? `${dparts(minDate).dd} ${dparts(minDate).mmm} – ${dparts(maxDate).dd} ${dparts(maxDate).mmm}` : "Sin fechas aún"}</span>
+          {minDate && maxDate ? (
+            <button onClick={() => setEditDates({ start: minDate, end: maxDate })} title="Cambiar las fechas del viaje"
+              style={{ ...mono, fontSize: 13, color: "#EAF2F7", background: "transparent", border: "none", padding: 0, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}>
+              {`${dparts(minDate).dd} ${dparts(minDate).mmm} – ${dparts(maxDate).dd} ${dparts(maxDate).mmm}`}
+              <Pencil size={11} style={{ opacity: 0.65 }} />
+            </button>
+          ) : (
+            <span>Sin fechas aún</span>
+          )}
           <span style={{ color: "#3A4E60" }}>|</span>
           <span>{dates.length} día{dates.length === 1 ? "" : "s"} · {itin.length} {itin.length === 1 ? "parada" : "paradas"}</span>
         </div>
@@ -2704,6 +2740,48 @@ export default function App({ tripId, tripName, onBack }) {
             <div className="flex gap-2">
               <button onClick={() => setConfirmExport(false)} className="flex-1 rounded-lg py-2.5" style={{ border: `1px solid ${C.line}`, background: C.card, color: C.sub, fontSize: 14, fontWeight: 600 }}>Cancelar</button>
               <button onClick={exportAll} className="flex-1 rounded-lg py-2.5" style={{ background: C.ink, color: "#fff", fontSize: 14, fontWeight: 700 }}>Exportar a PDF</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editDates && (
+        <div onClick={() => setEditDates(null)} style={{ position: "fixed", inset: 0, background: "rgba(20,16,12,0.55)", zIndex: 70, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: C.paper, width: "100%", maxWidth: 360, borderRadius: 16, padding: 20, border: `1px solid ${C.line}` }}>
+            <div className="flex items-center gap-2 mb-2" style={{ color: C.ink, fontWeight: 800, fontSize: 16 }}><Calendar size={18} color={C.red} /> Fechas del viaje</div>
+            <div style={{ fontSize: 13, color: C.sub, lineHeight: 1.5, marginBottom: 16 }}>
+              Se moverá <b style={{ color: C.ink }}>todo el viaje</b> para empezar en la nueva fecha y la última parada se ajustará para terminar en la fecha de fin. Se conservan las paradas y sus actividades.
+            </div>
+            <div className="flex gap-2">
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 11, color: C.sub, marginBottom: 4 }}>Inicio</div>
+                <input type="date" value={editDates.start} onChange={(e) => setEditDates((s) => {
+                  const nsv = e.target.value;
+                  if (!nsv || !s.start) return { ...s, start: nsv };
+                  // Cambiar el inicio mueve todo el viaje: desplazamos el fin igual
+                  // para conservar la duración (luego el fin se puede ajustar aparte).
+                  const d = Math.round((new Date(nsv) - new Date(s.start)) / 86400000);
+                  const newEnd = s.end ? addDaysISO(s.end, d) : s.end;
+                  return { start: nsv, end: (newEnd && newEnd >= nsv) ? newEnd : nsv };
+                })} style={{ ...inp, ...mono, fontSize: 14 }} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 11, color: C.sub, marginBottom: 4 }}>Fin</div>
+                <input type="date" value={editDates.end} min={editDates.start} onChange={(e) => setEditDates((s) => ({ ...s, end: e.target.value }))} style={{ ...inp, ...mono, fontSize: 14 }} />
+              </div>
+            </div>
+            {editDates.end && editDates.start && editDates.end < editDates.start && (
+              <div style={{ color: C.red, fontSize: 12, marginTop: 8 }}>La fecha de fin no puede ser anterior al inicio.</div>
+            )}
+            <div className="flex gap-2" style={{ marginTop: 18 }}>
+              <button onClick={() => setEditDates(null)} className="flex-1 rounded-lg py-2.5" style={{ border: `1px solid ${C.line}`, background: C.card, color: C.sub, fontSize: 14, fontWeight: 600 }}>Cancelar</button>
+              <button
+                onClick={() => { applyTripDates(editDates.start, editDates.end); setEditDates(null); }}
+                disabled={!editDates.start || !editDates.end || editDates.end < editDates.start}
+                className="flex-1 rounded-lg py-2.5"
+                style={{ background: C.ink, color: "#fff", fontSize: 14, fontWeight: 700, opacity: (!editDates.start || !editDates.end || editDates.end < editDates.start) ? 0.6 : 1 }}>
+                Guardar
+              </button>
             </div>
           </div>
         </div>
